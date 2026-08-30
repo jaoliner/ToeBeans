@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Search</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <h1>Search the catalogue</h1>
+
+    <label for="q">Name or shelter ID</label>
+    <input id="q" type="text" placeholder="e.g. Biscuit, or tag #A1042" />
+
+    <label for="shelter-filter">Shelter</label>
+    <select id="shelter-filter">
+      <option value="">All shelters</option>
+    </select>
+
+    <div class="section-label" id="result-count"></div>
+    <div id="results"></div>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    renderNav("search");
+
+    const qEl = document.getElementById("q");
+    const shelterEl = document.getElementById("shelter-filter");
+    const resultsEl = document.getElementById("results");
+    const countEl = document.getElementById("result-count");
+
+    async function loadShelters() {
+      const { data } = await sb.from("shelters").select("id, name").order("name");
+      (data || []).forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = s.name;
+        shelterEl.appendChild(opt);
+      });
+    }
+
+    function renderResults(cats) {
+      countEl.textContent = cats.length + (cats.length === 1 ? " cat" : " cats");
+      if (cats.length === 0) {
+        resultsEl.innerHTML = `<p class="empty">No cats match that search.</p>`;
+        return;
+      }
+      resultsEl.innerHTML = cats.map(c => `
+        <a href="cat.html?id=${c.id}">
+          <div class="card cat-card">
+            <img class="thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            <div class="body">
+              <div class="name">${c.name}</div>
+              <div class="meta">${c.shelters ? c.shelters.name : "Unknown shelter"} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
+              <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+            </div>
+          </div>
+        </a>
+      `).join("");
+    }
+
+    async function search() {
+      const term = qEl.value.trim();
+      const shelterId = shelterEl.value;
+
+      let query = sb.from("cats").select("id, name, shelter_cat_id, tags, photo_url, shelters(name)");
+      if (term) {
+        query = query.or(`name.ilike.%${term}%,shelter_cat_id.ilike.%${term}%`);
+      }
+      if (shelterId) {
+        query = query.eq("shelter_id", shelterId);
+      }
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
+      renderResults(data || []);
+    }
+
+    let debounceTimer;
+    qEl.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(search, 250);
+    });
+    shelterEl.addEventListener("change", search);
+
+    loadShelters();
+    search();
+  </script>
+</body>
+</html>

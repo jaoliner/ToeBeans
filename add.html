@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Add a cat</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px; max-width: 480px;">
+    <h1>Add a cat</h1>
+    <p style="color: var(--ink-soft); font-size: 0.9rem;">
+      Log a cat you've met. You'll rank it against a few others next.
+    </p>
+
+    <label for="name">Name</label>
+    <input id="name" type="text" required />
+
+    <label for="shelter">Shelter</label>
+    <input id="shelter" type="text" placeholder="e.g. Riverside Humane Society" list="shelter-options" />
+    <datalist id="shelter-options"></datalist>
+
+    <label for="shelter-cat-id">Shelter ID / tag number</label>
+    <input id="shelter-cat-id" type="text" placeholder="e.g. A1042" />
+
+    <div class="row">
+      <div>
+        <label for="breed">Breed</label>
+        <input id="breed" type="text" />
+      </div>
+      <div>
+        <label for="age">Age</label>
+        <input id="age" type="text" placeholder="e.g. 2 years" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="sex">Sex</label>
+        <select id="sex">
+          <option value="">Unknown</option>
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+      </div>
+      <div>
+        <label for="color">Color</label>
+        <input id="color" type="text" />
+      </div>
+    </div>
+
+    <label for="tags">Personality tags</label>
+    <input id="tags" type="text" placeholder="comma separated — playful, shy, lap cat" />
+
+    <label for="photo-url">Photo URL</label>
+    <input id="photo-url" type="url" placeholder="link to a photo (optional)" />
+
+    <label for="notes">Notes</label>
+    <textarea id="notes" placeholder="Anything memorable about this cat"></textarea>
+
+    <p class="error-text" id="err" style="display:none;"></p>
+
+    <button class="btn block" id="submit-btn" style="margin-top:18px;">Save cat</button>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession;
+    (async () => {
+      currentSession = await requireAuth();
+      if (!currentSession) return;
+      renderNav("add");
+      loadShelterOptions();
+    })();
+
+    async function loadShelterOptions() {
+      const { data } = await sb.from("shelters").select("name").order("name");
+      const dl = document.getElementById("shelter-options");
+      (data || []).forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.name;
+        dl.appendChild(opt);
+      });
+    }
+
+    async function findOrCreateShelter(name) {
+      if (!name) return null;
+      const { data: existing } = await sb.from("shelters").select("id").eq("name", name).maybeSingle();
+      if (existing) return existing.id;
+      const { data: created, error } = await sb.from("shelters").insert({ name }).select("id").single();
+      if (error) throw error;
+      return created.id;
+    }
+
+    document.getElementById("submit-btn").onclick = async () => {
+      const err = document.getElementById("err");
+      err.style.display = "none";
+
+      const name = document.getElementById("name").value.trim();
+      if (!name) {
+        err.textContent = "Give the cat a name.";
+        err.style.display = "block";
+        return;
+      }
+
+      const btn = document.getElementById("submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+
+      try {
+        const shelterName = document.getElementById("shelter").value.trim();
+        const shelterId = await findOrCreateShelter(shelterName);
+        const tags = document.getElementById("tags").value
+          .split(",").map(t => t.trim()).filter(Boolean);
+
+        const { data: cat, error } = await sb.from("cats").insert({
+          name,
+          shelter_id: shelterId,
+          shelter_cat_id: document.getElementById("shelter-cat-id").value.trim() || null,
+          breed: document.getElementById("breed").value.trim() || null,
+          age: document.getElementById("age").value.trim() || null,
+          sex: document.getElementById("sex").value || null,
+          color: document.getElementById("color").value.trim() || null,
+          tags,
+          photo_url: document.getElementById("photo-url").value.trim() || null,
+          notes: document.getElementById("notes").value.trim() || null,
+          added_by: currentSession.user.id
+        }).select("id").single();
+
+        if (error) throw error;
+
+        // give it a starting rating, then send to compare flow
+        await sb.from("ratings").insert({
+          user_id: currentSession.user.id,
+          cat_id: cat.id,
+          elo_score: 1500
+        });
+
+        window.location.href = `compare.html?new=${cat.id}`;
+      } catch (e) {
+        err.textContent = e.message || "Something went wrong saving that cat.";
+        err.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Save cat";
+      }
+    };
+  </script>
+</body>
+</html>

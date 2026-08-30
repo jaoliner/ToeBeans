@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Feed</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <h1>Feed</h1>
+    <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 20px;">
+      What everyone's been logging and ranking.
+    </p>
+    <div id="feed-list">
+      <p class="empty">Loading…</p>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    async function loadFeed() {
+      await renderNav("feed");
+      const listEl = document.getElementById("feed-list");
+
+      // Recently added cats
+      const { data: newCats } = await sb
+        .from("cats")
+        .select("id, name, created_at, added_by, profiles(username)")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      // Recent comparisons
+      const { data: comps } = await sb
+        .from("comparisons")
+        .select("id, created_at, user_id, winner_id, cat_a_id, cat_b_id, profiles(username), winner:winner_id(name)")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const events = [];
+      (newCats || []).forEach(c => events.push({
+        type: "add",
+        when: c.created_at,
+        who: c.profiles ? c.profiles.username : "someone",
+        text: `added <a href="cat.html?id=${c.id}"><strong>${c.name}</strong></a> to the catalogue`
+      }));
+      (comps || []).forEach(c => events.push({
+        type: "compare",
+        when: c.created_at,
+        who: c.profiles ? c.profiles.username : "someone",
+        text: `ranked <a href="cat.html?id=${c.winner_id}"><strong>${c.winner ? c.winner.name : "a cat"}</strong></a> higher in a comparison`
+      }));
+
+      events.sort((a, b) => new Date(b.when) - new Date(a.when));
+
+      if (events.length === 0) {
+        listEl.innerHTML = `<p class="empty">No activity yet — be the first to <a href="add.html">add a cat</a>.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = `<div class="card">` + events.slice(0, 30).map(e => `
+        <div class="feed-entry">
+          <div class="dot"></div>
+          <div>
+            <div class="text"><span class="who">${e.who}</span> ${e.text}</div>
+            <div class="when">${timeAgo(e.when)}</div>
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    }
+    loadFeed();
+  </script>
+</body>
+</html>

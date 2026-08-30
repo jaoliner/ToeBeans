@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Cat</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <div id="content"><p class="empty">Loading…</p></div>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const session = await getSession();
+      renderNav(null);
+
+      const id = new URLSearchParams(window.location.search).get("id");
+      const contentEl = document.getElementById("content");
+      if (!id) {
+        contentEl.innerHTML = `<p class="empty">No cat specified.</p>`;
+        return;
+      }
+
+      const { data: c, error } = await sb
+        .from("cats")
+        .select("*, shelters(name, city), profiles(username)")
+        .eq("id", id)
+        .single();
+
+      if (error || !c) {
+        contentEl.innerHTML = `<p class="empty">Couldn't find that cat.</p>`;
+        return;
+      }
+
+      let rankHtml = "";
+      if (session) {
+        const { data: myRanks } = await sb
+          .from("ratings")
+          .select("cat_id, elo_score")
+          .eq("user_id", session.user.id)
+          .order("elo_score", { ascending: false });
+        if (myRanks && myRanks.length) {
+          const idx = myRanks.findIndex(r => r.cat_id === id);
+          if (idx >= 0) {
+            rankHtml = `<div class="section-label">Your ranking</div>
+              <p>#${idx + 1} of ${myRanks.length} · Elo ${myRanks[idx].elo_score}</p>`;
+          }
+        }
+      }
+
+      contentEl.innerHTML = `
+        <img src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';"
+             style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:3px; border:1px solid var(--rule); margin-bottom:16px;" />
+        <h1>${c.name}</h1>
+        <p style="color: var(--ink-soft);">
+          ${c.shelters ? c.shelters.name : "Unknown shelter"}${c.shelters && c.shelters.city ? ", " + c.shelters.city : ""}
+          ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
+        </p>
+        <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+
+        <div class="hr"></div>
+        <div class="row">
+          <p><strong>Breed</strong><br>${c.breed || "—"}</p>
+          <p><strong>Age</strong><br>${c.age || "—"}</p>
+        </div>
+        <div class="row">
+          <p><strong>Sex</strong><br>${c.sex || "—"}</p>
+          <p><strong>Color</strong><br>${c.color || "—"}</p>
+        </div>
+
+        ${c.notes ? `<div class="section-label">Notes</div><p>${c.notes}</p>` : ""}
+        ${rankHtml}
+
+        <p style="color: var(--ink-soft); font-size: 0.78rem; margin-top: 18px;">
+          Added by ${c.profiles ? c.profiles.username : "someone"} · ${timeAgo(c.created_at)}
+        </p>
+      `;
+    })();
+  </script>
+</body>
+</html>

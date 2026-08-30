@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Sign in</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px; max-width: 420px;">
+    <h1 id="form-title">Sign in</h1>
+
+    <label for="username-field">Volunteer name</label>
+    <input id="username-field" type="text" placeholder="How others will see you in the feed" style="display:none;" />
+
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email" />
+
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+
+    <p class="error-text" id="err" style="display:none;"></p>
+
+    <button class="btn block" id="submit-btn" style="margin-top:18px;">Sign in</button>
+
+    <p style="margin-top:16px; font-size:0.85rem; text-align:center;">
+      <a href="#" id="toggle-mode" style="border-bottom:1px dotted var(--moss-dark);">New here? Create an account</a>
+    </p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    renderNav(null);
+
+    let mode = "signin"; // or "signup"
+    const usernameField = document.getElementById("username-field");
+    const toggle = document.getElementById("toggle-mode");
+    const title = document.getElementById("form-title");
+    const submitBtn = document.getElementById("submit-btn");
+    const err = document.getElementById("err");
+
+    toggle.onclick = (e) => {
+      e.preventDefault();
+      mode = mode === "signin" ? "signup" : "signin";
+      if (mode === "signup") {
+        title.textContent = "Create an account";
+        usernameField.style.display = "block";
+        submitBtn.textContent = "Create account";
+        toggle.textContent = "Already have an account? Sign in";
+      } else {
+        title.textContent = "Sign in";
+        usernameField.style.display = "none";
+        submitBtn.textContent = "Sign in";
+        toggle.textContent = "New here? Create an account";
+      }
+    };
+
+    submitBtn.onclick = async () => {
+      err.style.display = "none";
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      if (!email || !password) {
+        err.textContent = "Enter an email and password.";
+        err.style.display = "block";
+        return;
+      }
+      submitBtn.disabled = true;
+
+      if (mode === "signup") {
+        const username = usernameField.value.trim() || email.split("@")[0];
+        const { error } = await signUp(email, password, username);
+        if (error) {
+          err.textContent = error.message;
+          err.style.display = "block";
+          submitBtn.disabled = false;
+          return;
+        }
+        // If your Supabase project has email confirmation on, they'll
+        // need to confirm before signing in.
+        window.location.href = "index.html";
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          err.textContent = error.message;
+          err.style.display = "block";
+          submitBtn.disabled = false;
+          return;
+        }
+        window.location.href = "index.html";
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — Compare</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <h1 id="heading">Which did you like more?</h1>
+    <p style="color: var(--ink-soft); font-size: 0.9rem;" id="subheading"></p>
+
+    <div id="compare-area"><p class="empty">Loading…</p></div>
+
+    <p style="text-align:center; margin-top: 18px;">
+      <a href="#" id="skip-link" style="font-size:0.85rem; color: var(--ink-soft); border-bottom:1px dotted var(--ink-soft);">Skip for now</a>
+    </p>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/elo.js"></script>
+  <script>
+    const MAX_ROUNDS = 3;
+    let currentSession, opponents = [], round = 0, subjectCat, subjectRating;
+    const params = new URLSearchParams(window.location.search);
+    const newCatId = params.get("new");
+
+    (async () => {
+      currentSession = await requireAuth();
+      if (!currentSession) return;
+      renderNav(newCatId ? "add" : null);
+
+      const userId = currentSession.user.id;
+
+      // Load this user's already-rated cats, excluding the subject cat
+      const { data: myRatings } = await sb
+        .from("ratings")
+        .select("cat_id, elo_score, cats(id, name, photo_url)")
+        .eq("user_id", userId);
+
+      let pool = (myRatings || []).filter(r => r.cats && r.cat_id !== newCatId);
+
+      if (newCatId) {
+        const { data: cat } = await sb.from("cats").select("id, name, photo_url").eq("id", newCatId).single();
+        subjectCat = cat;
+        const { data: r } = await sb.from("ratings").select("elo_score").eq("user_id", userId).eq("cat_id", newCatId).single();
+        subjectRating = r ? r.elo_score : 1500;
+        document.getElementById("subheading").textContent = `Placing ${cat.name} in your rankings.`;
+      } else {
+        document.getElementById("subheading").textContent = "A little practice round to sharpen your rankings.";
+      }
+
+      if (pool.length === 0) {
+        document.getElementById("compare-area").innerHTML =
+          `<p class="empty">You don't have any other rated cats yet — nothing to compare against. Add another cat to start building your rankings.</p>`;
+        return;
+      }
+
+      // shuffle and take up to MAX_ROUNDS opponents
+      pool.sort(() => Math.random() - 0.5);
+      opponents = pool.slice(0, MAX_ROUNDS);
+
+      if (!newCatId) {
+        // general practice mode: subject is just the first opponent, compared against the rest
+        subjectCat = opponents[0].cats;
+        subjectRating = opponents[0].elo_score;
+        opponents = opponents.slice(1);
+        if (opponents.length === 0) {
+          document.getElementById("compare-area").innerHTML =
+            `<p class="empty">Add a few more cats to unlock practice comparisons.</p>`;
+          return;
+        }
+      }
+
+      showRound();
+    })();
+
+    function showRound() {
+      if (round >= opponents.length) {
+        finish();
+        return;
+      }
+      const opp = opponents[round];
+      document.getElementById("heading").textContent = "Which did you like more?";
+      document.getElementById("compare-area").innerHTML = `
+        <div class="vs-wrap">
+          <div class="vs-cat" id="pick-a">
+            <img src="${subjectCat.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            <h3>${subjectCat.name}</h3>
+          </div>
+          <div class="vs-divider">vs</div>
+          <div class="vs-cat" id="pick-b">
+            <img src="${opp.cats.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            <h3>${opp.cats.name}</h3>
+          </div>
+        </div>
+      `;
+      document.getElementById("pick-a").onclick = () => choose(true, opp);
+      document.getElementById("pick-b").onclick = () => choose(false, opp);
+    }
+
+    async function choose(subjectWon, opp) {
+      const userId = currentSession.user.id;
+      const { newA, newB } = eloUpdate(subjectRating, opp.elo_score, subjectWon);
+
+      await sb.from("comparisons").insert({
+        user_id: userId,
+        cat_a_id: subjectCat.id,
+        cat_b_id: opp.cats.id,
+        winner_id: subjectWon ? subjectCat.id : opp.cats.id
+      });
+
+      subjectRating = newA;
+      await sb.from("ratings").update({ elo_score: newA, updated_at: new Date().toISOString() })
+        .eq("user_id", userId).eq("cat_id", subjectCat.id);
+      await sb.from("ratings").update({ elo_score: newB, updated_at: new Date().toISOString() })
+        .eq("user_id", userId).eq("cat_id", opp.cats.id);
+      await sb.from("ratings").update({ comparisons_count: (opp.comparisons_count || 0) + 1 })
+        .eq("user_id", userId).eq("cat_id", opp.cats.id);
+
+      round++;
+      showRound();
+    }
+
+    function finish() {
+      document.getElementById("heading").textContent = "All set!";
+      document.getElementById("compare-area").innerHTML =
+        `<p class="empty">${subjectCat.name} is now placed in your rankings.</p>
+         <a class="btn block" href="rankings.html">See my rankings</a>`;
+    }
+
+    document.getElementById("skip-link").onclick = (e) => {
+      e.preventDefault();
+      window.location.href = "rankings.html";
+    };
+  </script>
+</body>
+</html>

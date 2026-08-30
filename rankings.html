@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Ranker — My rankings</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <h1>My rankings</h1>
+    <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 18px;" id="subtext"></p>
+
+    <div id="list"><p class="empty">Loading…</p></div>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const session = await requireAuth();
+      if (!session) return;
+      renderNav("rankings");
+
+      const { data, error } = await sb
+        .from("ratings")
+        .select("elo_score, comparisons_count, cats(id, name, photo_url, tags, shelter_cat_id, shelters(name))")
+        .eq("user_id", session.user.id)
+        .order("elo_score", { ascending: false });
+
+      const listEl = document.getElementById("list");
+      const subtext = document.getElementById("subtext");
+
+      if (!data || data.length === 0) {
+        subtext.textContent = "";
+        listEl.innerHTML = `<p class="empty">No cats ranked yet — <a href="add.html">add your first one</a>.</p>`;
+        return;
+      }
+
+      subtext.textContent = `${data.length} cat${data.length === 1 ? "" : "s"} ranked, best first.`;
+
+      listEl.innerHTML = data.map((r, i) => {
+        const c = r.cats;
+        if (!c) return "";
+        return `
+        <a href="cat.html?id=${c.id}">
+          <div class="card cat-card">
+            <div class="rank-stamp">#${i + 1}</div>
+            <img class="thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            <div class="body">
+              <div class="name">${c.name}</div>
+              <div class="meta">${c.shelters ? c.shelters.name : ""} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
+              <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+            </div>
+          </div>
+        </a>`;
+      }).join("");
+    })();
+  </script>
+</body>
+</html>
