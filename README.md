@@ -40,6 +40,22 @@ don't need.
    The anon key is meant to be public — it's safe to commit to your repo.
    Real security comes from the Row Level Security policies already set
    up in `schema.sql`.
+4. In Supabase, open **Storage** and create a public bucket named
+   `cat-photos`. This is what the Add a cat page uploads to when you
+   choose a file instead of pasting a URL.
+5. In the same project, open **Storage → Policies** for the
+   `cat-photos` bucket and allow:
+   - public read access for the bucket
+   - signed-in users to upload files
+
+   If you prefer SQL, this also works in the SQL Editor:
+   ```sql
+   create policy "cat photos are publicly readable" on storage.objects
+   for select using (bucket_id = 'cat-photos');
+
+   create policy "signed in users can upload cat photos" on storage.objects
+   for insert with check (bucket_id = 'cat-photos' and auth.uid() is not null);
+   ```
 
 ## 5. Upload to your GitHub repo
 
@@ -67,8 +83,7 @@ Your site will update at the same URL as before
 - **Ranking placement** compares a new cat against up to 3 random
   already-rated cats rather than doing a full binary-search insertion.
   It's simpler and works well enough at small scale; can be refined later.
-- **Photos** are added by pasting an image URL, not an upload — keeps
-  things build-step-free. Supabase Storage can be added later for real
-  uploads.
+- **Photos** can be added either by pasting an image URL or uploading a
+  file to the public `cat-photos` Supabase bucket.
 - **Shelters** are created automatically the first time someone types a
   new shelter name when adding a cat.

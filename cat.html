@@ -33,14 +33,53 @@
 
       const { data: c, error } = await sb
         .from("cats")
-        .select("*, shelters(name, city), profiles(username)")
+        .select("*")
         .eq("id", id)
         .single();
 
       if (error || !c) {
+        console.error("Cat load failed", error);
         contentEl.innerHTML = `<p class="empty">Couldn't find that cat.</p>`;
         return;
       }
+
+      let shelter = null;
+      if (c.shelter_id) {
+        const { data: shelterData } = await sb.from("shelters").select("name, city").eq("id", c.shelter_id).maybeSingle();
+        shelter = shelterData;
+      }
+
+      let addedByUser = null;
+      if (c.added_by) {
+        const { data: profileData } = await sb.from("profiles").select("username").eq("id", c.added_by).maybeSingle();
+        addedByUser = profileData;
+      }
+
+      const photoUrls = (c.photo_url || "")
+        .split(/[,;\n]/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const { data: reviewsData } = await sb
+        .from("ratings")
+        .select("note, elo_score, user_id")
+        .eq("cat_id", id)
+        .not("note", "is", null)
+        .order("elo_score", { ascending: false });
+
+      const userIds = [...new Set((reviewsData || []).map(r => r.user_id).filter(Boolean))];
+      let reviewUsers = [];
+      if (userIds.length) {
+        const { data: profileRows } = await sb.from("profiles").select("id, username").in("id", userIds);
+        reviewUsers = profileRows || [];
+      }
+
+      const reviews = (reviewsData || [])
+        .filter(r => r.user_id !== (session ? session.user.id : null))
+        .map(r => {
+          const profile = reviewUsers.find(u => u.id === r.user_id);
+          return { ...r, profiles: profile ? { username: profile.username } : null };
+        });
 
       let rankHtml = "";
       if (session) {
@@ -58,12 +97,32 @@
         }
       }
 
+      const photoGallery = photoUrls.length
+        ? `<div class="photo-gallery">` +
+          `<img class="gallery-main" src="${photoUrls[0]}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />` +
+          (photoUrls.length > 1 ? `<div class="gallery-thumbs">${photoUrls.slice(1).map(url => `
+            <img class="gallery-thumb" src="${url}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+          `).join("")}</div>` : "") +
+          `</div>`
+        : `<div class="photo-gallery empty-gallery"><div class="empty-photo">No photo added yet</div></div>`;
+
+      const reviewsHtml = reviews.length
+        ? `<details class="review-details" open>
+            <summary>Reviews from other volunteers</summary>
+            <div class="review-list">${reviews.map(r => `
+              <div class="review-item">
+                <div class="review-head"><strong>${r.profiles ? r.profiles.username : "A volunteer"}</strong></div>
+                <div class="review-note">${r.note}</div>
+              </div>
+            `).join("")}</div>
+          </details>`
+        : `<div class="section-label">Reviews</div><p class="muted">No notes yet from other volunteers.</p>`;
+
       contentEl.innerHTML = `
-        <img src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';"
-             style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:3px; border:1px solid var(--rule); margin-bottom:16px;" />
+        ${photoGallery}
         <h1>${c.name}</h1>
         <p style="color: var(--ink-soft);">
-          ${c.shelters ? c.shelters.name : "Unknown shelter"}${c.shelters && c.shelters.city ? ", " + c.shelters.city : ""}
+          ${shelter ? shelter.name : "Unknown shelter"}${shelter && shelter.city ? ", " + shelter.city : ""}
           ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
         </p>
         <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
@@ -80,9 +139,10 @@
 
         ${c.notes ? `<div class="section-label">Notes</div><p>${c.notes}</p>` : ""}
         ${rankHtml}
+        ${reviewsHtml}
 
         <p style="color: var(--ink-soft); font-size: 0.78rem; margin-top: 18px;">
-          Added by ${c.profiles ? c.profiles.username : "someone"} · ${timeAgo(c.created_at)}
+          Added by ${addedByUser ? addedByUser.username : "someone"} · ${timeAgo(c.created_at)}
         </p>
       `;
     })();

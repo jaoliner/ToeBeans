@@ -30,50 +30,50 @@
       await renderNav("feed");
       const listEl = document.getElementById("feed-list");
 
-      // Recently added cats
-      const { data: newCats } = await sb
-        .from("cats")
-        .select("id, name, created_at, added_by, profiles(username)")
-        .order("created_at", { ascending: false })
+      const { data: rankedCats, error } = await sb
+        .from("ratings")
+        .select("updated_at, user_id, elo_score, profiles(username), cats(id, name, photo_url, breed, age, sex, color, tags, shelter_cat_id, shelters(name))")
+        .order("updated_at", { ascending: false })
         .limit(20);
 
-      // Recent comparisons
-      const { data: comps } = await sb
-        .from("comparisons")
-        .select("id, created_at, user_id, winner_id, cat_a_id, cat_b_id, profiles(username), winner:winner_id(name)")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      const events = [];
-      (newCats || []).forEach(c => events.push({
-        type: "add",
-        when: c.created_at,
-        who: c.profiles ? c.profiles.username : "someone",
-        text: `added <a href="cat.html?id=${c.id}"><strong>${c.name}</strong></a> to the catalogue`
-      }));
-      (comps || []).forEach(c => events.push({
-        type: "compare",
-        when: c.created_at,
-        who: c.profiles ? c.profiles.username : "someone",
-        text: `ranked <a href="cat.html?id=${c.winner_id}"><strong>${c.winner ? c.winner.name : "a cat"}</strong></a> higher in a comparison`
-      }));
-
-      events.sort((a, b) => new Date(b.when) - new Date(a.when));
-
-      if (events.length === 0) {
-        listEl.innerHTML = `<p class="empty">No activity yet — be the first to <a href="add.html">add a cat</a>.</p>`;
+      if (error) {
+        listEl.innerHTML = `<p class="empty">Could not load the feed right now.</p>`;
         return;
       }
 
-      listEl.innerHTML = `<div class="card">` + events.slice(0, 30).map(e => `
-        <div class="feed-entry">
-          <div class="dot"></div>
-          <div>
-            <div class="text"><span class="who">${e.who}</span> ${e.text}</div>
-            <div class="when">${timeAgo(e.when)}</div>
+      const events = (rankedCats || []).map(r => ({
+        when: r.updated_at,
+        who: r.profiles ? r.profiles.username : "someone",
+        cat: r.cats
+      })).filter(e => e.cat);
+
+      if (events.length === 0) {
+        listEl.innerHTML = `<p class="empty">No rankings yet — be the first to <a href="add.html">add a cat</a>.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = `<div class="card">` + events.slice(0, 12).map(e => {
+        const c = e.cat;
+        const meta = [c.shelters ? c.shelters.name : "", c.shelter_cat_id ? `#${c.shelter_cat_id}` : ""].filter(Boolean).join(" • ");
+        const details = [c.breed, c.age, c.sex, c.color].filter(Boolean).join(" • ");
+        return `
+          <div class="feed-entry feed-ranked">
+            <div class="dot"></div>
+            <div class="feed-ranked-body">
+              <div class="text"><span class="who">${e.who}</span> ranked <a href="cat.html?id=${c.id}"><strong>${c.name}</strong></a></div>
+              <div class="when">${timeAgo(e.when)}</div>
+              <div class="feed-rank-card">
+                <img class="feed-rank-thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+                <div class="feed-rank-copy">
+                  <div class="feed-rank-meta">${meta}</div>
+                  <div class="feed-rank-details">${details || "No details added yet"}</div>
+                  <div class="tags">${(c.tags || []).slice(0, 4).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      `).join("") + `</div>`;
+        `;
+      }).join("") + `</div>`;
     }
     loadFeed();
   </script>

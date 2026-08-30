@@ -79,8 +79,22 @@
       if (shelterId) {
         query = query.eq("shelter_id", shelterId);
       }
-      const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
-      renderResults(data || []);
+
+      const { data: cats, error: catError } = await query.order("created_at", { ascending: false }).limit(100);
+      if (catError) {
+        renderResults([]);
+        return;
+      }
+
+      const { data: ratings, error: ratingError } = await sb.from("ratings").select("cat_id");
+      if (ratingError) {
+        renderResults([]);
+        return;
+      }
+
+      const activeCatIds = new Set((ratings || []).map(r => r.cat_id));
+      const visibleCats = (cats || []).filter(cat => activeCatIds.has(cat.id));
+      renderResults(visibleCats);
     }
 
     let debounceTimer;

@@ -51,6 +51,7 @@ create table ratings (
   cat_id uuid references cats(id) not null,
   elo_score numeric default 1500,
   comparisons_count int default 0,
+  note text,
   updated_at timestamptz default now(),
   primary key (user_id, cat_id)
 );
@@ -83,6 +84,16 @@ create policy "users can log their own comparisons" on comparisons for insert wi
 create policy "ratings are publicly readable" on ratings for select using (true);
 create policy "users can write their own ratings" on ratings for insert with check (auth.uid() = user_id);
 create policy "users can update their own ratings" on ratings for update using (auth.uid() = user_id);
+create policy "users can delete their own ratings" on ratings for delete using (auth.uid() = user_id);
+
+-- Storage bucket used by the Add a cat page for uploaded photos.
+-- Create a public bucket named 'cat-photos' in Supabase Storage first,
+-- then run these policies in the SQL editor.
+create policy "cat photos are publicly readable" on storage.objects
+for select using (bucket_id = 'cat-photos');
+
+create policy "signed in users can upload cat photos" on storage.objects
+for insert with check (bucket_id = 'cat-photos' and auth.uid() is not null);
 
 -- ============================================================
 -- Automatically create a profile row when someone confirms sign-up

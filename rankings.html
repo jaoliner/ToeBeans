@@ -23,7 +23,7 @@
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    (async () => {
+    async function renderRankings() {
       const session = await requireAuth();
       if (!session) return;
       renderNav("rankings");
@@ -37,6 +37,12 @@
       const listEl = document.getElementById("list");
       const subtext = document.getElementById("subtext");
 
+      if (error) {
+        subtext.textContent = "";
+        listEl.innerHTML = `<p class="empty">Could not load your rankings right now.</p>`;
+        return;
+      }
+
       if (!data || data.length === 0) {
         subtext.textContent = "";
         listEl.innerHTML = `<p class="empty">No cats ranked yet — <a href="add.html">add your first one</a>.</p>`;
@@ -49,19 +55,53 @@
         const c = r.cats;
         if (!c) return "";
         return `
-        <a href="cat.html?id=${c.id}">
           <div class="card cat-card">
             <div class="rank-stamp">#${i + 1}</div>
             <img class="thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
             <div class="body">
-              <div class="name">${c.name}</div>
-              <div class="meta">${c.shelters ? c.shelters.name : ""} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
-              <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+              <a href="cat.html?id=${c.id}" class="cat-link">
+                <div class="name">${c.name}</div>
+                <div class="meta">${c.shelters ? c.shelters.name : ""} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
+                <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+              </a>
+              <div class="inline-actions">
+                <button class="btn secondary small" type="button" data-delete-cat="${c.id}">Delete</button>
+              </div>
             </div>
-          </div>
-        </a>`;
+          </div>`;
       }).join("");
-    })();
+
+      document.querySelectorAll("[data-delete-cat]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const catId = button.getAttribute("data-delete-cat");
+          const confirmed = window.confirm("Remove this cat from your personal rankings?");
+          if (!confirmed) return;
+
+          button.disabled = true;
+          button.textContent = "Deleting…";
+
+          const { error } = await sb
+            .from("ratings")
+            .delete()
+            .eq("user_id", session.user.id)
+            .eq("cat_id", catId);
+
+          if (error) {
+            button.disabled = false;
+            button.textContent = "Delete";
+            const detail = error.message && error.message.toLowerCase().includes("policy")
+              ? "Delete is blocked by your Supabase Row Level Security policy. Run the updated SQL in schema.sql so users can delete their own ratings."
+              : (error.message || "Could not delete that cat from your rankings.");
+            alert(detail);
+            return;
+          }
+
+          await renderRankings();
+        });
+      });
+    }
+
+    renderRankings();
   </script>
 </body>
 </html>
