@@ -10,80 +10,76 @@
   <header class="topbar"><div id="app-nav-top"></div></header>
 
   <main class="wrap" style="padding-top: 20px; max-width: 480px;">
-    <h1 id="page-title">Add a Cat</h1>
+    <h1 id="page-title">Add a new cat</h1>
     <p id="page-subtitle" style="color: var(--ink-soft); font-size: 0.9rem;">
-      Log a cat you've met. You'll rank it against a few others next.
+      Add a cat that is not already in the system. This creates a brand-new cat record and gives you the first profile details.
     </p>
 
-    <div class="row">
-      <div style="flex: 1; min-width: 0;">
-        <label for="name">Name</label>
+    <div id="form-fields-full" style="display: block;">
+      <div style="flex: 1; min-width: 0; margin-bottom: 16px;">
+        <label for="name">Cat name</label>
         <input id="name" type="text" required />
       </div>
-      <div style="flex: 1; min-width: 0;">
-        <label for="cat-number">Cat ID</label>
-        <input id="cat-number" type="number" min="1" placeholder="optional" />
+
+      <label for="shelter">Owner / Shelter</label>
+      <input id="shelter" type="text" placeholder="e.g. Riverside Humane Society" list="shelter-options" />
+      <datalist id="shelter-options"></datalist>
+
+      <div class="row">
+        <div style="flex: 1; min-width: 0;">
+          <label for="age-number">Age</label>
+          <div class="row" style="gap: 8px; margin-top: 6px;">
+            <select id="age-number" style="flex: 1; min-width: 0;" aria-label="Age number">
+              <option value="">— No age</option>
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="13">13</option>
+              <option value="14">14</option>
+              <option value="15">15</option>
+              <option value="16">16</option>
+              <option value="17">17</option>
+              <option value="18">18</option>
+              <option value="19">19</option>
+              <option value="20">20</option>
+            </select>
+            <select id="age-unit" style="flex: 1; min-width: 0;" aria-label="Age unit">
+              <option value="">— No age</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <label for="shelter">Owner / Shelter</label>
-    <input id="shelter" type="text" placeholder="e.g. Riverside Humane Society" list="shelter-options" />
-    <datalist id="shelter-options"></datalist>
-
-    <div class="row">
-      <div style="flex: 1; min-width: 0;">
-        <label for="age-number">Age</label>
-        <div class="row" style="gap: 8px; margin-top: 6px;">
-          <select id="age-number" style="flex: 1; min-width: 0;" aria-label="Age number">
-            <option value="" selected disabled>—</option>
-            <option value="0">0</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
-            <option value="13">13</option>
-            <option value="14">14</option>
-            <option value="15">15</option>
-            <option value="16">16</option>
-            <option value="17">17</option>
-            <option value="18">18</option>
-            <option value="19">19</option>
-            <option value="20">20</option>
+      <div class="row">
+        <div>
+          <label for="sex">Sex</label>
+          <select id="sex">
+            <option value="" selected>Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
           </select>
-          <select id="age-unit" style="flex: 1; min-width: 0;" aria-label="Age unit">
-            <option value="" selected disabled>Select</option>
-            <option value="months">Months</option>
-            <option value="years">Years</option>
-          </select>
+        </div>
+        <div>
+          <label for="color">Color</label>
+          <input id="color" type="text" />
         </div>
       </div>
     </div>
 
-    <div class="row">
-      <div>
-        <label for="sex">Sex</label>
-        <select id="sex">
-          <option value="" selected>Select</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
-      </div>
-      <div>
-        <label for="color">Color</label>
-        <input id="color" type="text" />
-      </div>
-    </div>
-
-    <label for="photo-file">Upload a photo</label>
-    <input id="photo-file" type="file" accept="image/*" />
+    <label for="photo-file">Upload photos</label>
+    <input id="photo-file" type="file" accept="image/*" multiple />
 
     <label for="notes">Notes</label>
     <textarea id="notes" placeholder="Anything memorable about this cat"></textarea>
@@ -99,6 +95,7 @@
   <script src="js/config.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/catOwnership.js"></script>
   <script>
     let currentSession;
 
@@ -121,26 +118,39 @@
       return created.id;
     }
 
+    function normalizePhotoUrls(value) {
+      if (!value) return [];
+      return String(value)
+        .split(/[\n,;]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
     async function uploadPhotoIfNeeded(existingUrl = null) {
       const fileInput = document.getElementById("photo-file");
-      const file = fileInput && fileInput.files && fileInput.files[0];
+      const files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
+      const urlInput = document.getElementById("photo-url");
+      const additionalUrls = normalizePhotoUrls(urlInput ? urlInput.value : "");
+      const existingUrls = normalizePhotoUrls(existingUrl);
 
-      if (!file) {
-        return existingUrl || null;
+      const uploadedUrls = [];
+      for (const file of files) {
+        const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+        const { data, error } = await sb.storage.from("cat-photos").upload(safeFileName, file, {
+          cacheControl: "3600",
+          upsert: true
+        });
+
+        if (error) {
+          throw new Error("Photo upload failed. Create a public 'cat-photos' bucket in Supabase or upload a different file.");
+        }
+
+        const { data: publicData } = sb.storage.from("cat-photos").getPublicUrl(data.path);
+        if (publicData?.publicUrl) uploadedUrls.push(publicData.publicUrl);
       }
 
-      const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
-      const { data, error } = await sb.storage.from("cat-photos").upload(safeFileName, file, {
-        cacheControl: "3600",
-        upsert: true
-      });
-
-      if (error) {
-        throw new Error("Photo upload failed. Create a public 'cat-photos' bucket in Supabase or upload a different file.");
-      }
-
-      const { data: publicData } = sb.storage.from("cat-photos").getPublicUrl(data.path);
-      return publicData?.publicUrl || existingUrl || null;
+      const combined = [...existingUrls, ...uploadedUrls, ...additionalUrls];
+      return [...new Set(combined)].join(", ") || null;
     }
 
     function parseAgeValue(ageValue) {
@@ -163,11 +173,6 @@
       return Number(data?.cat_number || 0) + 1;
     }
 
-    async function populateCatNumberPreview() {
-      const input = document.getElementById("cat-number");
-      input.value = "";
-    }
-
     async function loadCatForEdit(catId) {
       const { data: cat, error } = await sb
         .from("cats")
@@ -177,31 +182,44 @@
 
       if (error) throw error;
       if (!cat) throw new Error("Could not find that cat to edit.");
-      if (cat.added_by && cat.added_by !== currentSession.user.id) {
-        throw new Error("You can only edit your own cats.");
+
+      const isOwner = canEditCat(currentSession.user.id, cat.added_by);
+      const fullFieldsContainer = document.getElementById("form-fields-full");
+
+      if (!isOwner) {
+        // Non-owner: show only photos and notes
+        fullFieldsContainer.style.display = "none";
+        document.getElementById("page-title").textContent = "Add photos & notes";
+        document.getElementById("page-subtitle").textContent = "Share additional photos and observations about this cat.";
+        document.getElementById("submit-btn").textContent = "Save photos & notes";
+        
+        // Load their own note from the ratings table
+        const { data: myRating } = await sb
+          .from("ratings")
+          .select("note")
+          .eq("user_id", currentSession.user.id)
+          .eq("cat_id", catId)
+          .maybeSingle();
+        document.getElementById("notes").value = myRating?.note || "";
+      } else {
+        // Owner: show full edit form
+        document.getElementById("page-title").textContent = "Edit cat";
+        document.getElementById("page-subtitle").textContent = "Update the details for this cat.";
+        document.getElementById("submit-btn").textContent = "Update cat";
+
+        document.getElementById("name").value = cat.name || "";
+        document.getElementById("shelter").value = cat.shelter_id ? (await getShelterName(cat.shelter_id)) || "" : "";
+        const ageValue = parseAgeValue(cat.age);
+        document.getElementById("age-number").value = ageValue.number || "";
+        document.getElementById("age-unit").value = ageValue.unit || "";
+        document.getElementById("sex").value = cat.sex || "";
+        document.getElementById("color").value = cat.color || "";
+        
+        // For owner, show the cat's notes
+        document.getElementById("notes").value = cat.notes || "";
       }
 
-      document.getElementById("page-title").textContent = "Edit cat";
-      document.getElementById("page-subtitle").textContent = "Update the details for this cat.";
-      document.getElementById("submit-btn").textContent = "Update cat";
-
-      const catNumberInput = document.getElementById("cat-number");
-      catNumberInput.value = cat.cat_number || "";
-      catNumberInput.readOnly = true;
-      catNumberInput.disabled = true;
-
-      document.getElementById("name").value = cat.name || "";
-      document.getElementById("shelter").value = cat.shelter_id ? (await getShelterName(cat.shelter_id)) || "" : "";
-
-      const ageValue = parseAgeValue(cat.age);
-      document.getElementById("age-number").value = ageValue.number || "";
-      document.getElementById("age-unit").value = ageValue.unit || "";
-
-      document.getElementById("sex").value = cat.sex || "";
-      document.getElementById("color").value = cat.color || "";
-      document.getElementById("notes").value = cat.notes || "";
-
-      return cat;
+      return { cat, isOwner };
     }
 
     async function getShelterName(shelterId) {
@@ -213,42 +231,7 @@
       const err = document.getElementById("err");
       err.style.display = "none";
 
-      const name = document.getElementById("name").value.trim();
-      if (!name) {
-        err.textContent = "Give the cat a name.";
-        err.style.display = "block";
-        return;
-      }
-
-      const ageNumber = document.getElementById("age-number").value.trim();
-      const ageUnit = document.getElementById("age-unit").value;
-      if (ageNumber && !ageUnit) {
-        err.textContent = "If you enter an age number, choose the unit too.";
-        err.style.display = "block";
-        return;
-      }
-
       const editId = new URLSearchParams(window.location.search).get("edit");
-      const isEditing = Boolean(editId);
-      const catNumberInput = document.getElementById("cat-number");
-
-      if (!isEditing) {
-        const enteredCatNumber = catNumberInput.value.trim();
-        if (enteredCatNumber) {
-          const { data: existingByCatNumber } = await sb
-            .from("cats")
-            .select("id")
-            .eq("cat_number", Number(enteredCatNumber))
-            .maybeSingle();
-
-          if (!existingByCatNumber) {
-            err.textContent = "That Cat ID does not exist. You cannot add a cat with a non-existent Cat ID.";
-            err.style.display = "block";
-            return;
-          }
-        }
-      }
-
       const btn = document.getElementById("submit-btn");
       btn.disabled = true;
       btn.textContent = "Saving…";
@@ -260,27 +243,61 @@
           throw new Error("Could not find that cat to update.");
         }
 
-        const shelterName = document.getElementById("shelter").value.trim();
-        const shelterId = await findOrCreateShelter(shelterName);
+        const isOwner = !editId || canEditCat(currentSession.user.id, existingCat?.added_by);
+        const isNonOwnerEdit = editId && !isOwner;
 
-        const photoUrl = await uploadPhotoIfNeeded(existingCat?.photo_url || null);
+        let photoUrl = null;
+        if (isNonOwnerEdit) {
+          // Non-owner edit: only append new photos/notes to existing
+          photoUrl = await uploadPhotoIfNeeded(existingCat?.photo_url || null);
+        } else if (isOwner || !editId) {
+          // Owner edit or new cat: process all fields
+          photoUrl = await uploadPhotoIfNeeded(existingCat?.photo_url || null);
+        }
 
-        const ageNumber = document.getElementById("age-number").value.trim();
-        const ageUnit = document.getElementById("age-unit").value;
-        const age = ageNumber && ageUnit ? `${ageNumber} ${ageUnit}` : null;
+        let payload;
+        let ratingNote = null;
+        if (isNonOwnerEdit) {
+          // Non-owner: update cat photos, and save note to their rating
+          payload = {
+            photo_url: photoUrl
+          };
+          ratingNote = document.getElementById("notes").value.trim() || null;
+        } else {
+          // Owner or new cat: full update
+          const name = document.getElementById("name").value.trim();
+          if (!name) {
+            err.textContent = "Give the cat a name.";
+            err.style.display = "block";
+            btn.disabled = false;
+            btn.textContent = document.getElementById("submit-btn").dataset.originalText || "Save cat";
+            return;
+          }
 
-        const payload = {
-          name,
-          shelter_id: shelterId,
-          age,
-          sex: document.getElementById("sex").value || null,
-          color: document.getElementById("color").value.trim() || null,
-          photo_url: photoUrl,
-          notes: document.getElementById("notes").value.trim() || null
-        };
+          const shelterName = document.getElementById("shelter").value.trim();
+          const shelterId = await findOrCreateShelter(shelterName);
 
-        if (!editId) {
-          payload.cat_number = await getNextCatNumber();
+          const ageNumber = document.getElementById("age-number").value.trim();
+          const ageUnit = document.getElementById("age-unit").value;
+          const age = ageNumber && ageUnit ? `${ageNumber} ${ageUnit}` : null;
+
+          payload = buildCatPayload({
+            currentUserId: currentSession.user.id,
+            existingCat,
+            values: {
+              name,
+              shelter_id: shelterId,
+              age,
+              sex: document.getElementById("sex").value || null,
+              color: document.getElementById("color").value.trim() || null,
+              photo_url: photoUrl,
+              notes: document.getElementById("notes").value.trim() || null
+            }
+          });
+
+          if (!editId) {
+            payload.cat_number = await getNextCatNumber();
+          }
         }
 
         let cat;
@@ -289,6 +306,15 @@
           if (error) throw error;
           if (!data) throw new Error("Could not find that cat to update.");
           cat = data;
+          
+          // If non-owner, also save their note to the ratings table
+          if (isNonOwnerEdit && ratingNote !== null) {
+            const { error: ratingError } = await sb.from("ratings").update({
+              note: ratingNote,
+              updated_at: new Date().toISOString()
+            }).eq("user_id", currentSession.user.id).eq("cat_id", editId);
+            if (ratingError) throw ratingError;
+          }
         } else {
           const { data, error } = await sb.from("cats").insert({
             ...payload,
@@ -322,7 +348,6 @@
       if (!currentSession) return;
       renderNav("add");
       loadShelterOptions();
-      populateCatNumberPreview();
 
       const editId = new URLSearchParams(window.location.search).get("edit");
       const saveButton = document.getElementById("submit-btn");
@@ -330,7 +355,7 @@
 
       if (editId) {
         try {
-          await loadCatForEdit(editId);
+          const { cat: editingCat, isOwner } = await loadCatForEdit(editId);
         } catch (e) {
           const err = document.getElementById("err");
           err.textContent = e.message || "Could not open that cat for editing.";

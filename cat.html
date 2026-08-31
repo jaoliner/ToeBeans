@@ -19,154 +19,246 @@
   <script src="js/config.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/catOwnership.js"></script>
   <script>
     (async () => {
-      const session = await getSession();
-      renderNav(null);
-
-      const id = new URLSearchParams(window.location.search).get("id");
       const contentEl = document.getElementById("content");
-      if (!id) {
-        contentEl.innerHTML = `<p class="empty">No cat specified.</p>`;
-        return;
-      }
 
-      const { data: c, error } = await sb
-        .from("cats")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      try {
+        const session = await getSession();
+        renderNav(null);
 
-      if (error || !c) {
-        console.error("Cat load failed", error);
-        contentEl.innerHTML = `<p class="empty">Couldn't find that cat.</p>`;
-        return;
-      }
+        const id = new URLSearchParams(window.location.search).get("id");
+        if (!id) {
+          contentEl.innerHTML = `<p class="empty">No cat specified.</p>`;
+          return;
+        }
 
-      let shelter = null;
-      if (c.shelter_id) {
-        const { data: shelterData } = await sb.from("shelters").select("name, city").eq("id", c.shelter_id).maybeSingle();
-        shelter = shelterData;
-      }
+        const { data: c, error } = await sb
+          .from("cats")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
 
-      let addedByUser = null;
-      if (c.added_by) {
-        const { data: profileData } = await sb.from("profiles").select("username").eq("id", c.added_by).maybeSingle();
-        addedByUser = profileData;
-      }
+        if (error || !c) {
+          console.error("Cat load failed", error);
+          contentEl.innerHTML = `<p class="empty">Couldn't find that cat.</p>`;
+          return;
+        }
 
-      const photoUrls = (c.photo_url || "")
-        .split(/[,;\n]/)
-        .map(s => s.trim())
-        .filter(Boolean);
+        let shelter = null;
+        if (c.shelter_id) {
+          const { data: shelterData } = await sb.from("shelters").select("name, city").eq("id", c.shelter_id).maybeSingle();
+          shelter = shelterData;
+        }
 
-      const { data: reviewsData } = await sb
-        .from("ratings")
-        .select("note, elo_score, user_id")
-        .eq("cat_id", id)
-        .not("note", "is", null)
-        .order("elo_score", { ascending: false });
+        let addedByUser = null;
+        if (c.added_by) {
+          const { data: profileData } = await sb.from("profiles").select("username").eq("id", c.added_by).maybeSingle();
+          addedByUser = profileData;
+        }
 
-      const userIds = [...new Set((reviewsData || []).map(r => r.user_id).filter(Boolean))];
-      let reviewUsers = [];
-      if (userIds.length) {
-        const { data: profileRows } = await sb.from("profiles").select("id, username").in("id", userIds);
-        reviewUsers = profileRows || [];
-      }
+        const photoUrls = (c.photo_url || "")
+          .split(/[\n,;]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
 
-      const reviews = (reviewsData || [])
-        .filter(r => r.user_id !== (session ? session.user.id : null))
-        .map(r => {
-          const profile = reviewUsers.find(u => u.id === r.user_id);
-          return { ...r, profiles: profile ? { username: profile.username } : null };
+        const { data: notesData } = await sb
+          .from("ratings")
+          .select("note, user_id, elo_score")
+          .eq("cat_id", id)
+          .order("updated_at", { ascending: false });
+
+        const userIds = [...new Set((notesData || []).map(r => r.user_id).filter(Boolean))];
+        let noteUsers = [];
+        if (userIds.length) {
+          const { data: profileRows } = await sb.from("profiles").select("id, username").in("id", userIds);
+          noteUsers = profileRows || [];
+        }
+
+        // Separate user's own note from others' notes
+        let myNote = null;
+        let myElo = null;
+        const volunteerNotes = [];
+        let totalElo = 0;
+        let eloCount = 0;
+
+        (notesData || []).forEach(r => {
+          const profile = noteUsers.find(u => u.id === r.user_id);
+          const noteObj = { ...r, profiles: profile ? { username: profile.username } : null };
+          
+          if (session && r.user_id === session.user.id) {
+            myNote = noteObj;
+            myElo = r.elo_score;
+          } else if (r.note) {
+            volunteerNotes.push(noteObj);
+          }
+          
+          // Calculate average from all ratings
+          if (r.elo_score) {
+            totalElo += r.elo_score;
+            eloCount++;
+          }
         });
 
-      let rankHtml = "";
-      if (session) {
-        const { data: myRanks } = await sb
-          .from("ratings")
-          .select("cat_id, elo_score")
-          .eq("user_id", session.user.id)
-          .order("elo_score", { ascending: false });
-        if (myRanks && myRanks.length) {
-          const idx = myRanks.findIndex(r => r.cat_id === id);
-          if (idx >= 0) {
-            rankHtml = `<div class="section-label">Your ranking</div>
-              <p>#${idx + 1} of ${myRanks.length} · Elo ${myRanks[idx].elo_score}</p>`;
+        const averageElo = eloCount > 0 ? Math.round(totalElo / eloCount) : null;
+
+        let rankHtml = "";
+        if (session) {
+          const { data: myRanks } = await sb
+            .from("ratings")
+            .select("cat_id, elo_score")
+            .eq("user_id", session.user.id)
+            .order("elo_score", { ascending: false });
+          if (myRanks && myRanks.length) {
+            const idx = myRanks.findIndex(r => r.cat_id === id);
+            if (idx >= 0) {
+              rankHtml = `<div class="section-label">Your ranking</div>
+                <p>#${idx + 1} of ${myRanks.length} · Elo ${myRanks[idx].elo_score}</p>`;
+            }
           }
         }
+
+        const catSilhouette = `
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/>
+          </svg>
+        `;
+
+        let galleryIndex = 0;
+        const galleryMain = photoUrls.length ? `
+          <div class="gallery-shell">
+            <button type="button" class="gallery-nav prev" aria-label="Previous photo" ${photoUrls.length <= 1 ? 'style="display:none;"' : ''}>‹</button>
+            <img id="gallery-main-image" class="gallery-main" src="${photoUrls[0]}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div class="cat-placeholder gallery-main" style="display: none;">${catSilhouette}</div>
+            <button type="button" class="gallery-nav next" aria-label="Next photo" ${photoUrls.length <= 1 ? 'style="display:none;"' : ''}>›</button>
+          </div>
+          ${photoUrls.length > 1 ? `<div class="gallery-dots">${photoUrls.map((_, index) => `<span class="gallery-dot ${index === galleryIndex ? 'active' : ''}"></span>`).join("")}</div>` : ""}
+        ` : `<div class="cat-placeholder gallery-main">${catSilhouette}</div>`;
+
+        const galleryThumbs = photoUrls.slice(1).map(url => `
+          <div class="thumb-shell">
+            <img class="gallery-thumb" src="${url}" onerror="this.style.display='none'; this.parentElement.querySelector('.cat-placeholder').style.display='flex';" />
+            <div class="cat-placeholder gallery-thumb" style="display: none;">${catSilhouette}</div>
+          </div>
+        `).join("");
+
+        const photoGallery = `<div class="photo-gallery">${galleryMain}${photoUrls.length > 1 ? `<div class="gallery-thumbs">${galleryThumbs}</div>` : ""}</div>`;
+
+        const notesHtml = volunteerNotes.length
+          ? `<div class="notes-list">${volunteerNotes.map(r => `
+                <div class="note-item">
+                  <strong>${r.profiles ? r.profiles.username : "A volunteer"}</strong><br/>
+                  <div class="note-text">${r.note}</div>
+                </div>
+              `).join("")}</div>`
+          : `<p class="muted">No notes yet</p>`;
+
+        const insightsGrid = `
+          <div class="insights-grid">
+            <div class="insight-card">
+              <div class="insight-label">Your notes</div>
+              ${myNote ? `<div class="note-item"><div class="note-text">${myNote.note}</div></div>` : `<p class="muted">No notes yet</p>`}
+            </div>
+            <div class="insight-card">
+              <div class="insight-label">Your rating</div>
+              ${myElo ? `<p class="insight-value">${myElo} Elo</p>` : `<p class="muted">Not rated yet</p>`}
+            </div>
+            <div class="insight-card">
+              <div class="insight-label">Notes from volunteers</div>
+              ${notesHtml}
+            </div>
+            <div class="insight-card">
+              <div class="insight-label">Average rating</div>
+              ${averageElo ? `<p class="insight-value">${averageElo} Elo</p>` : `<p class="muted">No ratings yet</p>`}
+            </div>
+          </div>
+        `;
+
+        const canEdit = canEditCat(session ? session.user.id : null, c.added_by);
+        let headerActionsHtml = "";
+        if (session) {
+          headerActionsHtml = `
+            <div class="cat-header-actions">
+              <button id="rank-cat-btn" class="btn" type="button">Rank Cat</button>
+              ${canEdit ? `<a class="btn secondary" href="add.html?edit=${c.id}">Add photos & notes</a>` : ""}
+            </div>
+          `;
+        }
+
+        const editButtonHtml = canEdit
+          ? `<div class="inline-actions" style="justify-content: flex-start; margin-top: 14px;">
+              <a class="btn secondary small" href="add.html?edit=${c.id}">Edit cat</a>
+            </div>`
+          : "";
+
+        contentEl.innerHTML = `
+          ${photoGallery}
+          <div class="cat-header">
+            <h1>${c.name}</h1>
+            ${headerActionsHtml}
+          </div>
+          <p style="color: var(--ink-soft);">
+            ${c.cat_number ? "Cat #" + c.cat_number : "Cat ID unavailable"}
+            ${shelter ? " · " + shelter.name : ""}${shelter && shelter.city ? ", " + shelter.city : ""}
+            ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
+          </p>
+          <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+          ${editButtonHtml}
+
+          <div class="hr"></div>
+          <div class="row">
+            <p><strong>Owner / Organization</strong><br>${shelter ? shelter.name : "—"}</p>
+            <p><strong>Age</strong><br>${c.age || "—"}</p>
+          </div>
+          <div class="row">
+            <p><strong>Sex</strong><br>${c.sex || "—"}</p>
+            <p><strong>Color</strong><br>${c.color || "—"}</p>
+          </div>
+
+          ${insightsGrid}
+
+          <p style="color: var(--ink-soft); font-size: 0.78rem; margin-top: 18px;">
+            Added by ${addedByUser ? addedByUser.username : "someone"} · ${timeAgo(c.created_at)}
+          </p>
+        `;
+
+        const rankCatButton = document.getElementById("rank-cat-btn");
+        if (rankCatButton) {
+          rankCatButton.addEventListener("click", async () => {
+            const { error } = await sb.from("ratings").upsert({
+              user_id: session.user.id,
+              cat_id: c.id,
+              elo_score: 1500,
+              comparisons_count: 0,
+              updated_at: new Date().toISOString()
+            }, { onConflict: "user_id,cat_id" });
+
+            if (!error) {
+              window.location.href = `compare.html?new=${c.id}`;
+            }
+          });
+        }
+
+        if (photoUrls.length > 1) {
+          const mainImage = document.getElementById("gallery-main-image");
+          const dots = Array.from(document.querySelectorAll(".gallery-dot"));
+          const prevBtn = document.querySelector(".gallery-nav.prev");
+          const nextBtn = document.querySelector(".gallery-nav.next");
+
+          const setGalleryIndex = (index) => {
+            galleryIndex = (index + photoUrls.length) % photoUrls.length;
+            if (mainImage) mainImage.src = photoUrls[galleryIndex];
+            dots.forEach((dot, dotIndex) => dot.classList.toggle("active", dotIndex === galleryIndex));
+          };
+
+          prevBtn?.addEventListener("click", () => setGalleryIndex(galleryIndex - 1));
+          nextBtn?.addEventListener("click", () => setGalleryIndex(galleryIndex + 1));
+        }
+      } catch (error) {
+        console.error("Cat page failed to render", error);
+        contentEl.innerHTML = `<p class="empty">This cat couldn't be loaded. Please try again.</p>`;
       }
-
-      const catSilhouette = `
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/>
-        </svg>
-      `;
-
-      const galleryMain = photoUrls[0] ? `
-        <div class="thumb-shell">
-          <img class="gallery-main" src="${photoUrls[0]}" onerror="this.style.display='none'; this.parentElement.querySelector('.cat-placeholder').style.display='flex';" />
-          <div class="cat-placeholder gallery-main" style="display: none;">${catSilhouette}</div>
-        </div>
-      ` : `<div class="cat-placeholder gallery-main">${catSilhouette}</div>`;
-
-      const galleryThumbs = photoUrls.slice(1).map(url => `
-        <div class="thumb-shell">
-          <img class="gallery-thumb" src="${url}" onerror="this.style.display='none'; this.parentElement.querySelector('.cat-placeholder').style.display='flex';" />
-          <div class="cat-placeholder gallery-thumb" style="display: none;">${catSilhouette}</div>
-        </div>
-      `).join("");
-
-      const photoGallery = `<div class="photo-gallery">${galleryMain}${photoUrls.length > 1 ? `<div class="gallery-thumbs">${galleryThumbs}</div>` : ""}</div>`;
-
-      const reviewsHtml = reviews.length
-        ? `<details class="review-details" open>
-            <summary>Reviews from other volunteers</summary>
-            <div class="review-list">${reviews.map(r => `
-              <div class="review-item">
-                <div class="review-head"><strong>${r.profiles ? r.profiles.username : "A volunteer"}</strong></div>
-                <div class="review-note">${r.note}</div>
-              </div>
-            `).join("")}</div>
-          </details>`
-        : `<div class="section-label">Reviews</div><p class="muted">No notes yet from other volunteers.</p>`;
-
-      const canEdit = !!session && c.added_by === session.user.id;
-      const editButtonHtml = canEdit
-        ? `<div class="inline-actions" style="justify-content: flex-start; margin-top: 14px;">
-            <a class="btn secondary small" href="add.html?edit=${c.id}">Edit cat</a>
-          </div>`
-        : "";
-
-      contentEl.innerHTML = `
-        ${photoGallery}
-        <h1>${c.name}</h1>
-        <p style="color: var(--ink-soft);">
-          ${c.cat_number ? "Cat #" + c.cat_number : "Cat ID unavailable"}
-          ${shelter ? " · " + shelter.name : ""}${shelter && shelter.city ? ", " + shelter.city : ""}
-          ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
-        </p>
-        <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
-        ${editButtonHtml}
-
-        <div class="hr"></div>
-        <div class="row">
-          <p><strong>Breed</strong><br>${c.breed || "—"}</p>
-          <p><strong>Age</strong><br>${c.age || "—"}</p>
-        </div>
-        <div class="row">
-          <p><strong>Sex</strong><br>${c.sex || "—"}</p>
-          <p><strong>Color</strong><br>${c.color || "—"}</p>
-        </div>
-
-        ${c.notes ? `<div class="section-label">Notes</div><p>${c.notes}</p>` : ""}
-        ${rankHtml}
-        ${reviewsHtml}
-
-        <p style="color: var(--ink-soft); font-size: 0.78rem; margin-top: 18px;">
-          Added by ${addedByUser ? addedByUser.username : "someone"} · ${timeAgo(c.created_at)}
-        </p>
-      `;
     })();
   </script>
 </body>
