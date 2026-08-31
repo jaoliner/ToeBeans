@@ -12,8 +12,8 @@
   <main class="wrap" style="padding-top: 20px;">
     <h1>Search the catalogue</h1>
 
-    <label for="q">Name or shelter ID</label>
-    <input id="q" type="text" placeholder="e.g. Biscuit, or tag #A1042" />
+    <label for="q">Name, shelter ID, or Cat ID</label>
+    <input id="q" type="text" placeholder="e.g. Biscuit, tag #A1042, or Cat #12" />
 
     <label for="shelter-filter">Shelter</label>
     <select id="shelter-filter">
@@ -57,10 +57,10 @@
       resultsEl.innerHTML = cats.map(c => `
         <a href="cat.html?id=${c.id}">
           <div class="card cat-card">
-            <img class="thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            ${c.photo_url ? `<div class="thumb-shell"><img class="thumb" src="${c.photo_url}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="thumb cat-placeholder" style="display:none;"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div>` : `<div class="thumb cat-placeholder"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div>`}
             <div class="body">
               <div class="name">${c.name}</div>
-              <div class="meta">${c.shelters ? c.shelters.name : "Unknown shelter"} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
+              <div class="meta">${c.shelters ? c.shelters.name : "Unknown shelter"}${c.cat_number ? " · <span class=\"cat-id\">Cat #" + c.cat_number + "</span>" : ""}${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
               <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
             </div>
           </div>
@@ -72,9 +72,12 @@
       const term = qEl.value.trim();
       const shelterId = shelterEl.value;
 
-      let query = sb.from("cats").select("id, name, shelter_cat_id, tags, photo_url, shelters(name)");
+      let query = sb.from("cats").select("id, cat_number, name, shelter_cat_id, tags, photo_url, shelters(name)");
       if (term) {
-        query = query.or(`name.ilike.%${term}%,shelter_cat_id.ilike.%${term}%`);
+        const cleanTerm = term.replace(/[^a-zA-Z0-9]/g, "");
+        const catIdMatch = /^\d+$/.test(term) ? `cat_number.eq.${Number(term)}` : null;
+        const textMatch = `name.ilike.%${term}%,shelter_cat_id.ilike.%${term}%`;
+        query = catIdMatch ? query.or(`${catIdMatch},${textMatch}`) : query.or(textMatch);
       }
       if (shelterId) {
         query = query.eq("shelter_id", shelterId);

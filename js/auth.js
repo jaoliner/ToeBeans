@@ -57,8 +57,8 @@ async function renderNav(activePage) {
   const bottomEl = document.getElementById("app-nav-bottom");
 
   const whoHtml = session
-    ? `<span class="who">signed in <a href="#" onclick="signOut();return false;">sign out</a></span>`
-    : `<span class="who"><a href="login.html">sign in</a></span>`;
+    ? `<span class="who"><a href="#" onclick="signOut();return false;">Sign out</a></span>`
+    : `<span class="who"><a href="login.html">Sign in</a></span>`;
 
   if (topEl) {
     topEl.innerHTML = `
@@ -67,8 +67,8 @@ async function renderNav(activePage) {
         <nav class="desktop-nav">
           <a href="index.html" class="${activePage === 'feed' ? 'active' : ''}">Feed</a>
           <a href="search.html" class="${activePage === 'search' ? 'active' : ''}">Search</a>
-          <a href="rankings.html" class="${activePage === 'rankings' ? 'active' : ''}">My rankings</a>
-          <a href="add.html" class="${activePage === 'add' ? 'active' : ''}">Add a cat</a>
+          <a href="rankings.html" class="${activePage === 'rankings' ? 'active' : ''}">My Cats</a>
+          <a href="add.html" class="${activePage === 'add' ? 'active' : ''}">Add a Cat</a>
         </nav>
         ${whoHtml}
       </div>`;

@@ -21,6 +21,7 @@ create table shelters (
 
 create table cats (
   id uuid primary key default gen_random_uuid(),
+  cat_number bigint unique not null default 1,
   name text not null,
   shelter_id uuid references shelters(id),
   shelter_cat_id text,           -- the shelter's own ID/tag number
@@ -77,6 +78,7 @@ create policy "signed in users can add shelters" on shelters for insert with che
 
 create policy "cats are publicly readable" on cats for select using (true);
 create policy "signed in users can add cats" on cats for insert with check (auth.uid() = added_by);
+create policy "users can update their own cats" on cats for update using (auth.uid() = added_by) with check (auth.uid() = added_by);
 
 create policy "comparisons are publicly readable" on comparisons for select using (true);
 create policy "users can log their own comparisons" on comparisons for insert with check (auth.uid() = user_id);

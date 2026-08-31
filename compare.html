@@ -54,9 +54,13 @@
       let pool = (myRatings || []).filter(r => r.cats && r.cat_id !== newCatId);
 
       if (newCatId) {
-        const { data: cat } = await sb.from("cats").select("id, name, photo_url").eq("id", newCatId).single();
+        const { data: cat } = await sb.from("cats").select("id, name, photo_url").eq("id", newCatId).maybeSingle();
+        if (!cat) {
+          document.getElementById("compare-area").innerHTML = '<p class="empty">That cat could not be loaded.</p>';
+          return;
+        }
         subjectCat = cat;
-        const { data: r } = await sb.from("ratings").select("elo_score").eq("user_id", userId).eq("cat_id", newCatId).single();
+        const { data: r } = await sb.from("ratings").select("elo_score").eq("user_id", userId).eq("cat_id", newCatId).maybeSingle();
         subjectRating = r ? r.elo_score : 1500;
         document.getElementById("subheading").textContent = `Placing ${cat.name} in your rankings.`;
       } else {

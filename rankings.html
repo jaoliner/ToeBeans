@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cat Ranker — My rankings</title>
+  <title>Cat Ranker — My Cats</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <header class="topbar"><div id="app-nav-top"></div></header>
 
   <main class="wrap" style="padding-top: 20px;">
-    <h1>My rankings</h1>
+    <h1>My Cats</h1>
     <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 18px;" id="subtext"></p>
 
     <div id="list"><p class="empty">Loading…</p></div>
@@ -54,22 +54,33 @@
       listEl.innerHTML = data.map((r, i) => {
         const c = r.cats;
         if (!c) return "";
+        const imageMarkup = c.photo_url
+          ? `<div class="thumb-shell"><img class="thumb" src="${c.photo_url}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="thumb cat-placeholder" style="display:none;"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div>`
+          : `<div class="thumb cat-placeholder"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div>`;
         return `
           <div class="card cat-card">
             <div class="rank-stamp">#${i + 1}</div>
-            <img class="thumb" src="${c.photo_url || ''}" onerror="this.style.background='var(--gold-soft)'; this.src='';" />
+            ${imageMarkup}
             <div class="body">
               <a href="cat.html?id=${c.id}" class="cat-link">
                 <div class="name">${c.name}</div>
                 <div class="meta">${c.shelters ? c.shelters.name : ""} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
                 <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
               </a>
-              <div class="inline-actions">
-                <button class="btn secondary small" type="button" data-delete-cat="${c.id}">Delete</button>
+              <div class="inline-actions" style="gap: 8px;">
+                <button class="btn secondary small" type="button" data-edit-cat="${c.id}">Edit</button>
+                <button class="btn secondary small danger" type="button" data-delete-cat="${c.id}">Delete</button>
               </div>
             </div>
           </div>`;
       }).join("");
+
+      document.querySelectorAll("[data-edit-cat]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const catId = button.getAttribute("data-edit-cat");
+          window.location.href = `add.html?edit=${catId}`;
+        });
+      });
 
       document.querySelectorAll("[data-delete-cat]").forEach((button) => {
         button.addEventListener("click", async () => {
