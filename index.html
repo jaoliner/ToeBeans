@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cat Ranker — Feed</title>
+  <title>Toe Beans.AI — Feed</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -14,6 +14,10 @@
     <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 20px;">
       What everyone's been logging and ranking.
     </p>
+    <div id="feed-filter" style="margin-bottom: 20px; display: flex; gap: 10px;">
+      <button class="feed-filter-btn active" data-filter="all">All</button>
+      <button class="feed-filter-btn" data-filter="friends">Friends</button>
+    </div>
     <div id="feed-list">
       <p class="empty">Loading…</p>
     </div>
@@ -26,29 +30,60 @@
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    async function loadFeed() {
+    let allRankedCats = [];
+    let friendIds = [];
+
+    async function loadFeed(filter = "all") {
+      const session = await getSession();
       await renderNav("feed");
       const listEl = document.getElementById("feed-list");
 
+      // Get all ranked cats
       const { data: rankedCats, error } = await sb
         .from("ratings")
         .select("updated_at, user_id, elo_score, profiles(username), cats(id, name, photo_url, breed, age, sex, color, tags, shelter_cat_id, shelters(name))")
         .order("updated_at", { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) {
         listEl.innerHTML = `<p class="empty">Could not load the feed right now.</p>`;
         return;
       }
 
-      const events = (rankedCats || []).map(r => ({
-        when: r.updated_at,
-        who: r.profiles ? r.profiles.username : "someone",
-        cat: r.cats
-      })).filter(e => e.cat);
+      allRankedCats = rankedCats || [];
+
+      // Load friends if filtering by friends
+      if (filter === "friends" && session) {
+        const { data: friendships } = await sb
+          .from("friends")
+          .select("user_id_1, user_id_2")
+          .or(`user_id_1.eq.${session.user.id},user_id_2.eq.${session.user.id}`);
+
+        friendIds = (friendships || []).map(f => 
+          f.user_id_1 === session.user.id ? f.user_id_2 : f.user_id_1
+        );
+        friendIds.push(session.user.id); // Include your own activity
+      }
+
+      // Filter events
+      let events = allRankedCats
+        .map(r => ({
+          when: r.updated_at,
+          userId: r.user_id,
+          who: r.profiles ? r.profiles.username : "someone",
+          cat: r.cats
+        }))
+        .filter(e => e.cat);
+
+      if (filter === "friends") {
+        events = events.filter(e => friendIds.includes(e.userId));
+      }
 
       if (events.length === 0) {
-        listEl.innerHTML = `<p class="empty">No rankings yet — be the first to <a href="add.html">add a cat</a>.</p>`;
+        const msg = filter === "friends" 
+          ? "No activity from friends yet. Add some friends!" 
+          : "No rankings yet — be the first to <a href=\"add.html\">add a cat</a>.";
+        listEl.innerHTML = `<p class="empty">${msg}</p>`;
         return;
       }
 
@@ -85,7 +120,19 @@
         `;
       }).join("") + `</div>`;
     }
-    loadFeed();
+
+    // Setup filter buttons
+    document.addEventListener("DOMContentLoaded", () => {
+      const filterBtns = document.querySelectorAll(".feed-filter-btn");
+      filterBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          filterBtns.forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          loadFeed(btn.dataset.filter);
+        });
+      });
+      loadFeed("all");
+    });
   </script>
 </body>
 </html>

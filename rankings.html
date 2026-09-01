@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cat Ranker — My Cats</title>
+  <title>Toe Beans.AI — My Cats</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,6 +12,11 @@
   <main class="wrap" style="padding-top: 20px;">
     <h1>My Cats</h1>
     <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 18px;" id="subtext"></p>
+
+    <div id="want-to-pet-section" style="margin-bottom: 24px; display: none;">
+      <div class="section-label">Want to Pet</div>
+      <div id="want-to-pet-list"></div>
+    </div>
 
     <div id="list"><p class="empty">Loading…</p></div>
   </main>
@@ -27,6 +32,44 @@
       const session = await requireAuth();
       if (!session) return;
       renderNav("rankings");
+
+      // Load want-to-pet list
+      const { data: bookmarks } = await sb
+        .from("bucket_list")
+        .select("cat_id")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      const wantToPetSection = document.getElementById("want-to-pet-section");
+      const wantToPetList = document.getElementById("want-to-pet-list");
+
+      if (bookmarks && bookmarks.length > 0) {
+        const catIds = bookmarks.map(b => b.cat_id);
+        const { data: bookmarkedCats } = await sb
+          .from("cats")
+          .select("*")
+          .in("id", catIds);
+
+        wantToPetList.innerHTML = (bookmarkedCats || []).map(cat => {
+          const imageMarkup = cat.photo_url
+            ? `<div class="thumb-shell"><img class="thumb" src="${(cat.photo_url || "").split(/[\n,;]+/)[0]}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="thumb cat-placeholder" style="display:none;"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div>`
+            : `<div class="thumb cat-placeholder"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div>`;
+          return `
+            <a href="cat.html?id=${cat.id}" class="cat-link">
+              <div class="card cat-card">
+                ${imageMarkup}
+                <div class="body">
+                  <div class="name">${cat.name}</div>
+                  <div class="meta">#${cat.cat_number}</div>
+                </div>
+              </div>
+            </a>
+          `;
+        }).join("");
+      } else {
+        wantToPetList.innerHTML = `<p class="empty" style="margin: 12px 0; font-size: 0.85rem;">No cats bookmarked yet — start bookmarking from cat profiles.</p>`;
+      }
+      wantToPetSection.style.display = "block";
 
       const { data, error } = await sb
         .from("ratings")

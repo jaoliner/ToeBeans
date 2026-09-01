@@ -1,5 +1,5 @@
 -- ============================================================
--- Cat Ranker — Supabase schema
+-- Toe Beans.AI — Supabase schema
 -- Run this once in your Supabase project's SQL Editor
 -- (Project → SQL Editor → New query → paste all of this → Run)
 -- ============================================================
@@ -57,6 +57,35 @@ create table ratings (
   primary key (user_id, cat_id)
 );
 
+-- Friend relationships
+create table friends (
+  id uuid primary key default gen_random_uuid(),
+  user_id_1 uuid references profiles(id) not null,
+  user_id_2 uuid references profiles(id) not null,
+  created_at timestamptz default now(),
+  unique(user_id_1, user_id_2)
+);
+
+-- Friend requests (pending)
+create table friend_requests (
+  id uuid primary key default gen_random_uuid(),
+  from_user_id uuid references profiles(id) not null,
+  to_user_id uuid references profiles(id) not null,
+  status text default 'pending', -- 'pending', 'accepted', 'rejected'
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(from_user_id, to_user_id)
+);
+
+-- Bucket list / bookmarks
+create table bucket_list (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  cat_id uuid references cats(id) not null,
+  created_at timestamptz default now(),
+  unique(user_id, cat_id)
+);
+
 -- ============================================================
 -- Row Level Security
 -- Everything is readable by anyone (it's a shared feed/catalogue).
@@ -68,6 +97,9 @@ alter table shelters enable row level security;
 alter table cats enable row level security;
 alter table comparisons enable row level security;
 alter table ratings enable row level security;
+alter table friends enable row level security;
+alter table friend_requests enable row level security;
+alter table bucket_list enable row level security;
 
 create policy "profiles are publicly readable" on profiles for select using (true);
 create policy "users can update their own profile" on profiles for update using (auth.uid() = id);
@@ -88,6 +120,19 @@ create policy "ratings are publicly readable" on ratings for select using (true)
 create policy "users can write their own ratings" on ratings for insert with check (auth.uid() = user_id);
 create policy "users can update their own ratings" on ratings for update using (auth.uid() = user_id);
 create policy "users can delete their own ratings" on ratings for delete using (auth.uid() = user_id);
+
+create policy "friends are readable by involved users" on friends for select using (auth.uid() = user_id_1 or auth.uid() = user_id_2);
+create policy "users can create friendships" on friends for insert with check (auth.uid() = user_id_1 or auth.uid() = user_id_2);
+create policy "users can delete friendships" on friends for delete using (auth.uid() = user_id_1 or auth.uid() = user_id_2);
+
+create policy "friend requests readable by involved users" on friend_requests for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+create policy "users can send friend requests" on friend_requests for insert with check (auth.uid() = from_user_id);
+create policy "users can accept/reject own requests" on friend_requests for update using (auth.uid() = to_user_id);
+create policy "users can delete own requests" on friend_requests for delete using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+
+create policy "bucket list is private to user" on bucket_list for select using (auth.uid() = user_id);
+create policy "users can add to own bucket list" on bucket_list for insert with check (auth.uid() = user_id);
+create policy "users can remove from own bucket list" on bucket_list for delete using (auth.uid() = user_id);
 
 -- Storage bucket used by the Add a cat page for uploaded photos.
 -- Create a public bucket named 'cat-photos' in Supabase Storage first,

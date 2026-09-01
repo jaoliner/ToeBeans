@@ -3,11 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cat Ranker — Add a Cat</title>
+  <title>Toe Beans.AI — Add a Cat</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
 </head>
 <body>
   <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <!-- Crop Modal -->
+  <div id="crop-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: white; border-radius: 16px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto;">
+      <h2 style="margin-top: 0; margin-bottom: 12px;">Crop to Square</h2>
+      <div style="background: #f0f0f0; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+        <img id="crop-image" src="" style="max-width: 100%; display: block;" />
+      </div>
+      <div style="display: flex; gap: 10px; flex-direction: column;">
+        <button id="crop-confirm" class="btn" style="flex: 1; min-height: 48px;">Use Photo</button>
+        <button id="crop-cancel" class="btn secondary" style="flex: 1; min-height: 48px;">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <main class="wrap" style="padding-top: 20px; max-width: 480px;">
     <h1 id="page-title">Add a new cat</h1>
@@ -92,6 +107,7 @@
   <nav class="tabbar" id="app-nav-bottom"></nav>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>
@@ -341,6 +357,136 @@
         btn.disabled = false;
         btn.textContent = document.getElementById("submit-btn").dataset.originalText || "Save cat";
       }
+    };
+
+    // ===== CROP FUNCTIONALITY =====
+    let cropper = null;
+    const cropModal = document.getElementById("crop-modal");
+    const cropImage = document.getElementById("crop-image");
+    const photoFileInput = document.getElementById("photo-file");
+    const cropCancelBtn = document.getElementById("crop-cancel");
+    const cropConfirmBtn = document.getElementById("crop-confirm");
+    let currentFileIndex = 0;
+    let filesToCrop = [];
+
+    function showCropModal(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        cropImage.src = e.target.result;
+        cropModal.style.display = "flex";
+
+        // Destroy previous cropper instance if exists
+        if (cropper) cropper.destroy();
+
+        // Initialize new cropper with 1:1 square aspect ratio
+        cropper = new Cropper(cropImage, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 1,
+          responsive: true,
+          restore: true,
+          guides: true,
+          center: true,
+          highlight: true,
+          cropBoxMovable: true,
+          cropBoxResizable: true,
+          toggleDragModeOnDblclick: true,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    cropCancelBtn.addEventListener("click", () => {
+      cropModal.style.display = "none";
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      // Reset file input
+      photoFileInput.value = "";
+      filesToCrop = [];
+      currentFileIndex = 0;
+    });
+
+    cropConfirmBtn.addEventListener("click", () => {
+      if (!cropper) return;
+
+      // Get cropped canvas
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 2000,
+        maxHeight: 2000,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: "high",
+      });
+      canvas.toBlob((blob) => {
+        // Create a new File object from the blob
+        const croppedFile = new File([blob], filesToCrop[currentFileIndex].name, { type: "image/jpeg" });
+        
+        // Store cropped files
+        if (!photoFileInput._croppedFiles) {
+          photoFileInput._croppedFiles = {};
+        }
+        photoFileInput._croppedFiles[filesToCrop[currentFileIndex].name] = croppedFile;
+
+        // Move to next file or close modal
+        currentFileIndex++;
+        if (currentFileIndex < filesToCrop.length) {
+          showCropModal(filesToCrop[currentFileIndex]);
+        } else {
+          cropModal.style.display = "none";
+          if (cropper) {
+            cropper.destroy();
+            cropper = null;
+          }
+          filesToCrop = [];
+          currentFileIndex = 0;
+        }
+      }, "image/jpeg", 0.95);
+    });
+
+    // Intercept file input change
+    photoFileInput.addEventListener("change", (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        filesToCrop = files;
+        currentFileIndex = 0;
+        showCropModal(files[0]);
+      }
+    });
+
+    // Modify uploadPhotoIfNeeded to use cropped files
+    const originalUploadPhotoIfNeeded = uploadPhotoIfNeeded;
+    uploadPhotoIfNeeded = async function(existingUrl = null) {
+      const fileInput = document.getElementById("photo-file");
+      let files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
+      
+      // Use cropped files if available
+      if (fileInput._croppedFiles) {
+        files = files.map(f => fileInput._croppedFiles[f.name] || f);
+      }
+      
+      const urlInput = document.getElementById("photo-url");
+      const additionalUrls = normalizePhotoUrls(urlInput ? urlInput.value : "");
+      const existingUrls = normalizePhotoUrls(existingUrl);
+
+      const uploadedUrls = [];
+      for (const file of files) {
+        const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+        const { data, error } = await sb.storage.from("cat-photos").upload(safeFileName, file, {
+          cacheControl: "3600",
+          upsert: true
+        });
+
+        if (error) {
+          throw new Error("Photo upload failed. Create a public 'cat-photos' bucket in Supabase or upload a different file.");
+        }
+
+        const { data: publicData } = sb.storage.from("cat-photos").getPublicUrl(data.path);
+        if (publicData?.publicUrl) uploadedUrls.push(publicData.publicUrl);
+      }
+
+      const combined = [...existingUrls, ...uploadedUrls, ...additionalUrls];
+      return [...new Set(combined)].join(", ") || null;
     };
 
     (async () => {

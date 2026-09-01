@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cat Ranker — Cat</title>
+  <title>Toe Beans.AI — Cat</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -165,7 +165,7 @@
               ${myElo ? `<p class="insight-value">${myElo} Elo</p>` : `<p class="muted">Not rated yet</p>`}
             </div>
             <div class="insight-card">
-              <div class="insight-label">Notes from volunteers</div>
+              <div class="insight-label">Community notes</div>
               ${notesHtml}
             </div>
             <div class="insight-card">
@@ -181,6 +181,7 @@
           headerActionsHtml = `
             <div class="cat-header-actions">
               <button id="rank-cat-btn" class="btn" type="button">Rank Cat</button>
+              <button id="bookmark-btn" class="btn secondary" type="button">Want to Pet</button>
               ${canEdit ? `<a class="btn secondary" href="add.html?edit=${c.id}">Add photos & notes</a>` : ""}
             </div>
           `;
@@ -237,6 +238,80 @@
             if (!error) {
               window.location.href = `compare.html?new=${c.id}`;
             }
+          });
+        }
+
+        // Bookmark functionality
+        const bookmarkBtn = document.getElementById("bookmark-btn");
+        
+        if (!bookmarkBtn) {
+          console.error("Bookmark button not found in DOM");
+        } else if (!session) {
+          console.error("No session - user not logged in");
+        } else {
+          console.log("Setting up bookmark button for cat:", id, "user:", session.user.id);
+          
+          // Check if already bookmarked
+          try {
+            const { data: existing } = await sb
+              .from("bucket_list")
+              .select("id")
+              .eq("user_id", session.user.id)
+              .eq("cat_id", id)
+              .maybeSingle();
+
+            if (existing) {
+              bookmarkBtn.textContent = "✓ Want to Pet";
+            }
+          } catch (e) {
+            console.error("Error checking bookmark status:", e);
+          }
+
+          bookmarkBtn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            console.log("Want to Pet clicked!");
+            bookmarkBtn.disabled = true;
+            
+            try {
+              const { data: existing } = await sb
+                .from("bucket_list")
+                .select("id")
+                .eq("user_id", session.user.id)
+                .eq("cat_id", id)
+                .maybeSingle();
+
+              console.log("Current bookmark status:", existing ? "bookmarked" : "not bookmarked");
+
+              if (existing) {
+                console.log("Removing bookmark...");
+                const { error: deleteError } = await sb.from("bucket_list").delete().eq("id", existing.id);
+                if (deleteError) {
+                  console.error("Delete error:", deleteError);
+                  bookmarkBtn.disabled = false;
+                  return;
+                }
+                bookmarkBtn.textContent = "Want to Pet";
+                console.log("Bookmark removed!");
+              } else {
+                console.log("Adding bookmark...");
+                const { error: insertError } = await sb.from("bucket_list").insert({ 
+                  user_id: session.user.id, 
+                  cat_id: id 
+                });
+                if (insertError) {
+                  console.error("Insert error:", insertError);
+                  bookmarkBtn.disabled = false;
+                  return;
+                }
+                bookmarkBtn.textContent = "✓ Want to Pet";
+                console.log("Bookmark added!");
+              }
+            } catch (e) {
+              console.error("Unexpected error:", e);
+              bookmarkBtn.disabled = false;
+            }
+            
+            bookmarkBtn.disabled = false;
           });
         }
 

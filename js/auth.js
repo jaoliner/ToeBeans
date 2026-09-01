@@ -56,14 +56,24 @@ async function renderNav(activePage) {
   const topEl = document.getElementById("app-nav-top");
   const bottomEl = document.getElementById("app-nav-bottom");
 
-  const whoHtml = session
-    ? `<span class="who"><a href="#" onclick="signOut();return false;">Sign out</a></span>`
-    : `<span class="who"><a href="login.html">Sign in</a></span>`;
+  let whoHtml;
+  if (session) {
+    const { data: profile } = await sb.from("profiles").select("username").eq("id", session.user.id).single();
+    const username = profile?.username || "User";
+    whoHtml = `
+      <span class="who">
+        <a href="profile.html" class="username-link">${username}</a>
+        <a href="#" onclick="signOut();return false;">Sign out</a>
+      </span>
+    `;
+  } else {
+    whoHtml = `<span class="who"><a href="login.html">Sign in</a></span>`;
+  }
 
   if (topEl) {
     topEl.innerHTML = `
-      <div class="wrap">
-        <div class="brand"><span class="stamp">🐾</span>Cat Ranker</div>
+      <div class="wrap" spellcheck="false">
+        <div class="brand"><span class="stamp">🐾</span>Toe Beans</div>
         <nav class="desktop-nav">
           <a href="index.html" class="${activePage === 'feed' ? 'active' : ''}">Feed</a>
           <a href="search.html" class="${activePage === 'search' ? 'active' : ''}">Search</a>
@@ -78,7 +88,7 @@ async function renderNav(activePage) {
       { id: "feed", href: "index.html", glyph: "☰", label: "Feed" },
       { id: "search", href: "search.html", glyph: "⚲", label: "Search" },
       { id: "add", href: "add.html", glyph: "+", label: "Add" },
-      { id: "rankings", href: "rankings.html", glyph: "№", label: "Rankings" },
+      { id: "rankings", href: "rankings.html", glyph: "№", label: "My Cats" },
     ];
     bottomEl.innerHTML = tabs.map(t => `
       <a href="${t.href}" class="${activePage === t.id ? 'active' : ''}">

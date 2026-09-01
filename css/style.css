@@ -1,5 +1,5 @@
 /* ============================================================
-   Cat Ranker — design tokens
+   Toe Beans.AI — design tokens
    Concept: a field naturalist's catalogue ledger — index cards,
    stamped numbers, hairline rules. Not a generic SaaS card kit.
    ============================================================ */
@@ -785,6 +785,193 @@ textarea { resize: vertical; min-height: 92px; }
     padding-left: 12px;
     padding-right: 12px;
   }
+
+  .cat-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .cat-header-actions {
+    width: 100%;
+    flex-direction: column;
+    justify-content: stretch;
+  }
+
+  .cat-header-actions button,
+  .cat-header-actions a {
+    width: 100% !important;
+  }
+
+  .inline-actions {
+    width: 100%;
+    flex-direction: column;
+    justify-content: stretch;
+  }
+
+  .inline-actions button,
+  .inline-actions a {
+    width: 100% !important;
+  }
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.85rem;
+}
+
+.who a {
+  color: var(--ink);
+  text-decoration: none;
+  transition: color 0.2s;
+  background: none;
+  border: none;
+}
+
+.who a::before,
+.who a::after {
+  content: none !important;
+  display: none !important;
+}
+
+.who a:hover {
+  color: var(--moss-dark);
+}
+
+.username-link {
+  font-weight: 600;
+  color: var(--moss-dark);
+}
+
+.username-link:hover {
+  color: var(--moss);
+}
+
+.feed-filter-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.feed-filter-btn:hover {
+  border-color: var(--moss);
+  color: var(--moss-dark);
+}
+
+.feed-filter-btn.active {
+  background: rgba(122, 161, 128, 0.15);
+  border-color: var(--moss);
+  color: var(--moss-dark);
+  font-weight: 600;
+}
+
+/* ---------- Profile page ---------- */
+.profile-card {
+  background: linear-gradient(180deg, var(--card) 0%, var(--card-strong) 100%);
+  border: 1px solid rgba(132, 111, 99, 0.08);
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 420px;
+  margin: 0 auto;
+  box-shadow: 0 10px 22px var(--shadow);
+}
+
+.profile-card h2 {
+  margin: 0 0 20px;
+  font-family: var(--serif);
+  color: var(--ink);
+}
+
+.profile-section {
+  margin-bottom: 20px;
+}
+
+.profile-section label {
+  font-weight: 700;
+  color: var(--moss-dark);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px;
+  display: block;
+}
+
+.profile-value {
+  font-size: 1rem;
+  color: var(--ink);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(132, 111, 99, 0.1);
+  border-radius: 16px;
+  margin: 0;
+}
+
+.username-edit {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.username-edit input {
+  flex: 1;
+  min-width: 0;
+}
+
+.username-edit button {
+  padding: 12px 16px;
+  min-width: 100px;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+#status-msg {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 6px;
+  min-height: 18px;
+}
+
+.profile-actions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.btn-danger {
+  display: block;
+  width: 100%;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(183, 101, 79, 0.15);
+  color: var(--danger);
+  border-color: rgba(183, 101, 79, 0.3);
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 600;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.btn-danger:hover {
+  background: rgba(183, 101, 79, 0.25);
+  border-color: rgba(183, 101, 79, 0.45);
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 @media (min-width: 680px) {

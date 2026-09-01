@@ -1,16 +1,16 @@
-# Cat Ranker — setup
+# Toe Beans.AI
 
-This is a plain HTML/CSS/JS app (no build step) that talks to a free
-Supabase project for the shared database and login. Pages: Feed, Search,
-Add a cat, Compare, My rankings, Cat detail, Sign in.
+Toe Beans.AI is a community-driven cat ranking platform that combines pairwise comparison (Elo rating system) with social features. Users rate and compare cats, bookmark their favorites, and connect with other cat enthusiasts through a friends system. Built with Supabase, it leverages Row Level Security for privacy while maintaining a public feed where volunteers contribute notes and insights about each cat. The platform provides personalized rankings for each user while building a shared, democratized database of cat data.
 
-## 1. Create a Supabase project (free)
+## Setup Instructions
+
+### 1. Create a Supabase project (free)
 
 1. Go to supabase.com and sign up, then "New project."
 2. Pick any name and a database password (save it somewhere).
 3. Wait ~2 minutes for it to spin up.
 
-## 2. Create the tables
+### 2. Create the tables
 
 1. In your project, open the **SQL Editor** (left sidebar).
 2. Click **New query**, paste in the entire contents of `schema.sql`
@@ -18,7 +18,7 @@ Add a cat, Compare, My rankings, Cat detail, Sign in.
 3. This creates all five tables, turns on Row Level Security, and sets
    up a trigger that auto-creates a profile when someone signs up.
 
-## 3. Turn off email confirmation (recommended for a small volunteer group)
+### 3. Turn off email confirmation (recommended for a small volunteer group)
 
 By default Supabase requires clicking a confirmation link before you can
 sign in. For a small trusted group this is extra friction you probably
@@ -28,7 +28,7 @@ don't need.
   "Confirm email." If you'd rather keep it on, that's fine too — people
   will just need to click the link Supabase emails them before signing in.
 
-## 4. Connect the app to your project
+### 4. Connect the app to your project
 
 1. In Supabase, go to **Project Settings → API**.
 2. Copy the **Project URL** and the **anon public** key.
@@ -57,7 +57,7 @@ don't need.
    for insert with check (bucket_id = 'cat-photos' and auth.uid() is not null);
    ```
 
-## 5. Upload to your GitHub repo
+### 5. Upload to your GitHub repo
 
 Upload every file in this folder (keeping the `css/` and `js/`
 subfolders) into your `cat-ranker` GitHub repo, replacing the
@@ -68,7 +68,7 @@ files**, drag in the whole folder, and commit.
 Your site will update at the same URL as before
 (`https://yourusername.github.io/cat-ranker/`) within a minute or two.
 
-## 6. Try it
+### 6. Try it
 
 1. Visit your site, click **sign in → Create an account**, give
    yourself a volunteer name.
