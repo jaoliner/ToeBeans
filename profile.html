@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toe Beans.AI — My Profile</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><div id="app-nav-top"></div></header>
+
+  <main class="wrap" style="padding-top: 20px;">
+    <div id="content"><p class="empty">Loading…</p></div>
+  </main>
+
+  <nav class="tabbar" id="app-nav-bottom"></nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const contentEl = document.getElementById("content");
+
+      try {
+        const session = await requireAuth();
+        renderNav("profile");
+
+        const { data: profile, error } = await sb
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (error || !profile) {
+          console.error("Profile load failed", error);
+          contentEl.innerHTML = `<p class="empty">Couldn't load profile.</p>`;
+          return;
+        }
+
+        contentEl.innerHTML = `
+          <div class="profile-card">
+            <h2>My Profile</h2>
+            
+            <div class="profile-section">
+              <label>Email</label>
+              <p class="profile-value">${session.user.email}</p>
+            </div>
+
+            <div class="profile-section">
+              <label for="username">Username</label>
+              <div class="username-edit">
+                <input 
+                  type="text" 
+                  id="username" 
+                  value="${profile.username || ''}" 
+                  placeholder="Choose a username"
+                />
+                <button id="update-btn" onclick="updateUsername()">Update</button>
+                <span id="status-msg"></span>
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <label>Member Since</label>
+              <p class="profile-value">${new Date(session.user.created_at).toLocaleDateString()}</p>
+            </div>
+
+            <div class="profile-actions">
+              <h3 style="margin-top: 24px; margin-bottom: 14px;">Friends</h3>
+              <div id="friends-list"></div>
+              <div id="pending-requests"></div>
+              <button class="btn secondary" onclick="document.getElementById('add-friend-form').style.display = document.getElementById('add-friend-form').style.display === 'none' ? 'block' : 'none'">Add Friend</button>
+              <div id="add-friend-form" style="display: none; margin-top: 14px;">
+                <input type="text" id="search-username" placeholder="Search username..." />
+                <button class="btn" onclick="searchUser()">Search</button>
+                <div id="search-results" style="margin-top: 10px;"></div>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button class="btn-danger" onclick="signOut()">Sign Out</button>
+            </div>
+          </div>
+        `;
+
+        // Load friends
+        await loadFriendsAndRequests(session.user.id);
+
+        window.updateUsername = async function() {
+          const newUsername = document.getElementById("username").value.trim();
+          const statusMsg = document.getElementById("status-msg");
+          const updateBtn = document.getElementById("update-btn");
+
+          if (!newUsername) {
+            statusMsg.textContent = "Username cannot be empty.";
+            statusMsg.style.color = "red";
+            return;
+          }
+
+          updateBtn.disabled = true;
+          statusMsg.textContent = "Updating...";
+          statusMsg.style.color = "gray";
+
+          // Check if username is already taken (by another user)
+          const { data: existing } = await sb
+            .from("profiles")
+            .select("id")
+            .eq("username", newUsername)
+            .maybeSingle();
+
+          if (existing && existing.id !== session.user.id) {
+            statusMsg.textContent = "This username already exists.";
+            statusMsg.style.color = "red";
+            updateBtn.disabled = false;
+            return;
+          }
+
+          const { error } = await sb
+            .from("profiles")
+            .update({ username: newUsername })
+            .eq("id", session.user.id);
+
+          updateBtn.disabled = false;
+
+          if (error) {
+            statusMsg.textContent = "Error updating username.";
+            statusMsg.style.color = "red";
+            console.error(error);
+          } else {
+            statusMsg.textContent = "✓ Username updated!";
+            statusMsg.style.color = "green";
+          }
+        };
+
+        window.searchUser = async function() {
+          const username = document.getElementById("search-username").value.trim();
+          const resultsEl = document.getElementById("search-results");
+          
+          if (!username) {
+            resultsEl.innerHTML = "";
+            return;
+          }
+
+          const { data: profiles } = await sb
+            .from("profiles")
+            .select("id, username")
+            .ilike("username", `%${username}%`)
+            .limit(10);
+
+          let html = "";
+          for (const p of profiles || []) {
+            if (p.id === session.user.id) continue;
+            
+            const { data: existingFriend } = await sb
+              .from("friends")
+              .select("id")
+              .or(`and(user_id_1.eq.${session.user.id},user_id_2.eq.${p.id}),and(user_id_1.eq.${p.id},user_id_2.eq.${session.user.id})`)
+              .maybeSingle();
+
+            const { data: existingRequest } = await sb
+              .from("friend_requests")
+              .select("status")
+              .eq("from_user_id", session.user.id)
+              .eq("to_user_id", p.id)
+              .maybeSingle();
+
+            let buttonHtml = "";
+            if (existingFriend) {
+              buttonHtml = `<span style="color: var(--moss-dark); font-weight: 600;">Already friends</span>`;
+            } else if (existingRequest) {
+              buttonHtml = `<span style="color: var(--ink-soft);">Request ${existingRequest.status}</span>`;
+            } else {
+              buttonHtml = `<button class="btn small" onclick="sendFriendRequest('${p.id}', '${p.username}')">Add Friend</button>`;
+            }
+
+            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; margin-bottom: 8px;">
+              <span>${p.username}</span>
+              ${buttonHtml}
+            </div>`;
+          }
+
+          resultsEl.innerHTML = html || `<p style="color: var(--ink-soft); font-size: 0.9rem;">No users found.</p>`;
+        };
+
+        window.sendFriendRequest = async function(toUserId, username) {
+          const { error } = await sb
+            .from("friend_requests")
+            .insert({ from_user_id: session.user.id, to_user_id: toUserId });
+
+          if (!error) {
+            alert(`Friend request sent to ${username}!`);
+            document.getElementById("search-username").value = "";
+            document.getElementById("search-results").innerHTML = "";
+            await loadFriendsAndRequests(session.user.id);
+          }
+        };
+
+        window.acceptFriendRequest = async function(requestId, fromUserId) {
+          await sb.from("friends").insert({ user_id_1: session.user.id, user_id_2: fromUserId });
+          await sb.from("friend_requests").update({ status: "accepted" }).eq("id", requestId);
+          await loadFriendsAndRequests(session.user.id);
+        };
+
+        window.rejectFriendRequest = async function(requestId) {
+          await sb.from("friend_requests").update({ status: "rejected" }).eq("id", requestId);
+          await loadFriendsAndRequests(session.user.id);
+        };
+
+        window.removeFriend = async function(friendId) {
+          if (confirm("Remove this friend?")) {
+            await sb.from("friends")
+              .delete()
+              .or(`and(user_id_1.eq.${session.user.id},user_id_2.eq.${friendId}),and(user_id_1.eq.${friendId},user_id_2.eq.${session.user.id})`);
+            await loadFriendsAndRequests(session.user.id);
+          }
+        };
+
+        async function loadFriendsAndRequests(userId) {
+          // Load friends
+          const { data: friendships } = await sb
+            .from("friends")
+            .select("user_id_1, user_id_2")
+            .or(`user_id_1.eq.${userId},user_id_2.eq.${userId}`);
+
+          let friendIds = [];
+          if (friendships) {
+            friendIds = friendships.map(f => f.user_id_1 === userId ? f.user_id_2 : f.user_id_1);
+          }
+
+          let friendsHtml = "";
+          if (friendIds.length > 0) {
+            const { data: friendProfiles } = await sb
+              .from("profiles")
+              .select("id, username")
+              .in("id", friendIds);
+
+            friendsHtml = (friendProfiles || []).map(p => `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; margin-bottom: 8px;">
+                <span>${p.username}</span>
+                <button class="btn small secondary" onclick="removeFriend('${p.id}')">Remove</button>
+              </div>
+            `).join("");
+          } else {
+            friendsHtml = `<p style="color: var(--ink-soft); font-size: 0.9rem;">No friends yet.</p>`;
+          }
+          document.getElementById("friends-list").innerHTML = friendsHtml;
+
+          // Load pending requests
+          const { data: requests } = await sb
+            .from("friend_requests")
+            .select("id, from_user_id, status")
+            .eq("to_user_id", userId)
+            .eq("status", "pending");
+
+          let requestsHtml = "";
+          if (requests && requests.length > 0) {
+            const fromUserIds = requests.map(r => r.from_user_id);
+            const { data: requesters } = await sb
+              .from("profiles")
+              .select("id, username")
+              .in("id", fromUserIds);
+
+            const requesterMap = Object.fromEntries((requesters || []).map(p => [p.id, p.username]));
+
+            requestsHtml = `<div style="margin-top: 14px;">
+              <p style="font-weight: 600; color: var(--ink); margin-bottom: 10px;">Friend Requests</p>
+              ${requests.map(r => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; margin-bottom: 8px;">
+                  <span>${requesterMap[r.from_user_id]}</span>
+                  <div style="display: flex; gap: 8px;">
+                    <button class="btn small" onclick="acceptFriendRequest('${r.id}', '${r.from_user_id}')">Accept</button>
+                    <button class="btn small secondary" onclick="rejectFriendRequest('${r.id}')">Reject</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>`;
+          }
+          document.getElementById("pending-requests").innerHTML = requestsHtml;
+        }
+
+      } catch (err) {
+        console.error("Profile error:", err);
+        contentEl.innerHTML = `<p class="empty">Error loading profile.</p>`;
+      }
+    })();
+  </script>
+</body>
+</html>
