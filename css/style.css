@@ -734,6 +734,10 @@ textarea { resize: vertical; min-height: 92px; }
   color: var(--ink-soft);
   font-size: 0.9rem;
 }
+.empty a {
+  text-decoration: underline;
+  cursor: pointer;
+}
 .error-text { color: var(--danger); font-size: 0.82rem; margin-top: 6px; }
 .hr { border: none; border-top: 1px solid var(--rule); margin: 18px 0; }
 .row { display: flex; gap: 10px; }

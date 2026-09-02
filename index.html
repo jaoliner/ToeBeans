@@ -81,7 +81,7 @@
 
       if (events.length === 0) {
         const msg = filter === "friends" 
-          ? "No activity from friends yet. Add some friends!" 
+          ? "No activity from friends yet. <a href=\"profile.html#friends\">Add some friends!</a>" 
           : "No rankings yet — be the first to <a href=\"add.html\">add a cat</a>.";
         listEl.innerHTML = `<p class="empty">${msg}</p>`;
         return;
