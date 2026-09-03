@@ -27,7 +27,7 @@
   <main class="wrap" style="padding-top: 20px; max-width: 480px;">
     <h1 id="page-title">Add a new cat</h1>
     <p id="page-subtitle" style="color: var(--ink-soft); font-size: 0.9rem;">
-      Add a cat that is not already in the system. This creates a brand-new cat record and gives you the first profile details.
+      Add a cat that is not already in the system. This creates a brand-new cat record and allows you to edit its information!
     </p>
 
     <div id="form-fields-full" style="display: block;">
@@ -37,7 +37,7 @@
       </div>
 
       <label for="shelter">Owner / Shelter</label>
-      <input id="shelter" type="text" placeholder="e.g. Riverside Humane Society" list="shelter-options" />
+      <input id="shelter" type="text" placeholder="e.g. Mini Cat Town" list="shelter-options" />
       <datalist id="shelter-options"></datalist>
 
       <div class="row">
@@ -98,7 +98,8 @@
     <div id="existing-photos" style="display:none; margin-top: 10px;"></div>
 
     <label for="notes">Notes</label>
-    <textarea id="notes" placeholder="Anything memorable about this cat"></textarea>
+    <textarea id="notes" maxlength="150" placeholder="Anything memorable about this cat"></textarea>
+    <div id="notes-count" class="character-count">0/150</div>
 
     <p class="error-text" id="err" style="display:none;"></p>
 
@@ -116,6 +117,13 @@
   <script>
     renderNav("add");
     let currentSession;
+    const notesInput = document.getElementById("notes");
+    const notesCount = document.getElementById("notes-count");
+    function updateNotesCount() {
+      notesCount.textContent = `${notesInput.value.length}/150`;
+    }
+    notesInput.addEventListener("input", updateNotesCount);
+    updateNotesCount();
 
     async function loadShelterOptions() {
       const { data } = await sb.from("shelters").select("name").order("name");
@@ -251,6 +259,7 @@
 
       if (!isOwner) {
         // Non-owner: keep cat details visible but only allow photos and notes to be changed
+        fullFieldsContainer.classList.add("readonly-fields");
         fullFieldsContainer.querySelectorAll("input, select, button, textarea").forEach(field => {
           field.disabled = true;
         });
@@ -265,7 +274,7 @@
           .eq("user_id", currentSession.user.id)
           .eq("cat_id", catId)
           .maybeSingle();
-        document.getElementById("notes").value = myRating?.note || "";
+        document.getElementById("notes").value = (myRating?.note || "").slice(0, 150);
       } else {
         // Owner: show full edit form
         document.getElementById("page-title").textContent = "Edit cat";
@@ -273,8 +282,10 @@
         document.getElementById("submit-btn").textContent = "Update cat";
 
         // For owner, show the cat's notes
-        document.getElementById("notes").value = cat.notes || "";
+        document.getElementById("notes").value = (cat.notes || "").slice(0, 150);
       }
+
+      updateNotesCount();
 
       return { cat, isOwner };
     }

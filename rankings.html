@@ -11,13 +11,14 @@
 
   <main class="wrap" style="padding-top: 20px;">
     <h1>My Cats</h1>
-    <p style="color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 18px;" id="subtext"></p>
+    <p style="color: var(--ink-soft); font-size: 1.05rem; font-weight: 600; margin-bottom: 18px;" id="subtext"></p>
 
     <div id="want-to-pet-section" style="margin-bottom: 24px; display: none;">
-      <div class="section-label">Want to Pet</div>
+      <div class="section-label want-to-pet-label">Want to pet</div>
       <div id="want-to-pet-list"></div>
     </div>
 
+    <div class="section-label want-to-pet-label">Cat Rankings</div>
     <div id="list"><p class="empty">Loading…</p></div>
   </main>
 
@@ -31,23 +32,41 @@
     async function renderRankings() {
       const session = await requireAuth();
       if (!session) return;
+      const viewedUserId = new URLSearchParams(window.location.search).get("user") || session.user.id;
+      const isOwnView = viewedUserId === session.user.id;
       renderNav("rankings");
 
+      if (!isOwnView) {
+        const { data: viewedProfile } = await sb.from("profiles").select("username").eq("id", viewedUserId).maybeSingle();
+        document.querySelector("main h1").textContent = `${viewedProfile?.username || "User"}'s My Cats`;
+        document.getElementById("want-to-pet-section").style.display = "none";
+      }
+
+      const { data: ratings } = await sb
+        .from("ratings")
+        .select("cat_id")
+        .eq("user_id", viewedUserId);
+      const rankedCatIds = new Set((ratings || []).map(rating => rating.cat_id));
+
       // Load want-to-pet list
-      const { data: bookmarks } = await sb
+      const { data: bookmarks } = isOwnView ? await sb
         .from("bucket_list")
         .select("cat_id")
         .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }) : { data: [] };
 
       const wantToPetSection = document.getElementById("want-to-pet-section");
       const wantToPetList = document.getElementById("want-to-pet-list");
 
       if (bookmarks && bookmarks.length > 0) {
-        const catIds = bookmarks.map(b => b.cat_id);
+        const catIds = bookmarks.map(b => b.cat_id).filter(catId => !rankedCatIds.has(catId));
+        if (catIds.length === 0) {
+          wantToPetList.innerHTML = `<p class="empty" style="margin: 12px 0; font-size: 0.85rem;">No cats bookmarked yet — start bookmarking from cat profiles.</p>`;
+          wantToPetSection.style.display = "block";
+        } else {
         const { data: bookmarkedCats } = await sb
           .from("cats")
-          .select("*")
+          .select("id, cat_number, name, breed, age, sex, color, photo_url, shelter_cat_id, shelters(name)")
           .in("id", catIds);
 
         wantToPetList.innerHTML = (bookmarkedCats || []).map(cat => {
@@ -60,12 +79,14 @@
                 ${imageMarkup}
                 <div class="body">
                   <div class="name">${cat.name}</div>
-                  <div class="meta">#${cat.cat_number}</div>
+                  <div class="feed-rank-meta">${cat.shelters ? `<strong>${cat.shelters.name}</strong>` : ""}${cat.shelter_cat_id ? ` · #${cat.shelter_cat_id}` : ""}</div>
+                  <div class="feed-rank-details">${[cat.breed, cat.age, cat.sex, cat.color].filter(Boolean).join(" • ") || "No details added yet"}</div>
                 </div>
               </div>
             </a>
           `;
         }).join("");
+        }
       } else {
         wantToPetList.innerHTML = `<p class="empty" style="margin: 12px 0; font-size: 0.85rem;">No cats bookmarked yet — start bookmarking from cat profiles.</p>`;
       }
@@ -73,8 +94,8 @@
 
       const { data, error } = await sb
         .from("ratings")
-        .select("elo_score, comparisons_count, cats(id, name, photo_url, tags, shelter_cat_id, shelters(name))")
-        .eq("user_id", session.user.id)
+        .select("elo_score, comparisons_count, note, cats(id, name, photo_url, breed, age, sex, color, notes, shelter_cat_id, shelters(name))")
+        .eq("user_id", viewedUserId)
         .order("elo_score", { ascending: false });
 
       const listEl = document.getElementById("list");
@@ -92,27 +113,32 @@
         return;
       }
 
-      subtext.textContent = `${data.length} cat${data.length === 1 ? "" : "s"} ranked, best first.`;
+      subtext.textContent = `${data.length} Cats Ranked`;
 
       listEl.innerHTML = data.map((r, i) => {
         const c = r.cats;
         if (!c) return "";
+        const rank = data.findIndex(candidate => Number(candidate.elo_score) === Number(r.elo_score)) + 1;
+        const meta = [c.shelters ? `<strong>${c.shelters.name}</strong>` : "", c.shelter_cat_id ? `#${c.shelter_cat_id}` : ""].filter(Boolean).join(" • ");
+        const details = [c.breed, c.age, c.sex, c.color].filter(Boolean).join(" • ");
+        const note = r.note || c.notes;
         const imageMarkup = c.photo_url
-          ? `<div class="thumb-shell"><img class="thumb" src="${c.photo_url}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="thumb cat-placeholder" style="display:none;"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div>`
-          : `<div class="thumb cat-placeholder"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div>`;
+          ? `<div class="rankings-photo"><div class="thumb-shell"><img class="thumb" src="${c.photo_url}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="thumb cat-placeholder" style="display:none;"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div></div>`
+          : `<div class="rankings-photo"><div class="thumb cat-placeholder"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="silhouette" d="M22 22c0-6 4-10 10-10s10 4 10 10v4c0 2 1 4 3 6 2-1 4-2 6-2 2 0 4 1 5 3l3 6c1 2 0 4-2 5l-4 2v7c0 5-4 9-9 9h-2v-8h-2v8h-2v-8h-2v8h-2v-8h-2v8h-2c-5 0-9-4-9-9v-7l-4-2c-2-1-3-3-2-5l3-6c1-2 3-3 5-3 2 0 4 1 6 2 2-2 3-4 3-6v-4zm8 8c-2 0-4 2-4 4s2 4 4 4h8c2 0 4-2 4-4s-2-4-4-4h-8zm-4 16h16v4H26v-4z"/></svg></div></div>`;
         return `
-          <div class="card cat-card">
-            <div class="rank-stamp">#${i + 1}</div>
+          <div class="card cat-card ranking-card">
+            <div class="rank-stamp">#${rank}</div>
             ${imageMarkup}
             <div class="body">
               <a href="cat.html?id=${c.id}" class="cat-link">
                 <div class="name">${c.name}</div>
-                <div class="meta">${c.shelters ? c.shelters.name : ""} ${c.shelter_cat_id ? "· <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}</div>
-                <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+                <div class="feed-rank-meta">${meta}</div>
+                <div class="feed-rank-details">${details || "No details added yet"}</div>
               </a>
-              <div class="inline-actions" style="gap: 8px;">
-                <button class="btn secondary small" type="button" data-edit-cat="${c.id}">Edit</button>
-                <button class="btn secondary small danger" type="button" data-delete-cat="${c.id}">Delete</button>
+              <div class="ranking-note-row">
+                ${note ? `<div class="feed-rank-details"><em>${note}</em></div>` : `<div></div>`}
+                ${isOwnView ? `<button class="btn secondary small" type="button" data-edit-cat="${c.id}">Edit</button>
+                <button class="btn secondary small danger" type="button" data-delete-cat="${c.id}">Delete</button>` : ""}
               </div>
             </div>
           </div>`;

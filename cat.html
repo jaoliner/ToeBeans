@@ -181,15 +181,13 @@
           </div>
         `;
 
-        const canEdit = canEditCat(session ? session.user.id : null, c.added_by);
         let headerActionsHtml = "";
         if (session) {
           headerActionsHtml = `
             <div class="cat-header-actions">
-              <a class="btn" href="add.html?edit=${c.id}">${hasMyRating ? "Edit ranking" : "Edit cat"}</a>
-              ${!hasMyRating
-                ? `<button id="rank-cat-btn" class="btn secondary" type="button">Rank Cat</button>`
-                : ""}
+              ${hasMyRating
+                ? `<a class="btn" href="add.html?edit=${c.id}">Edit ranking</a>`
+                : `<button id="rank-cat-btn" class="btn" type="button">Rank Cat</button>`}
               <button id="bookmark-btn" class="btn secondary" type="button" ${hasMyRating ? "disabled" : ""}>Want to Pet</button>
             </div>
           `;
@@ -206,7 +204,6 @@
             ${shelter ? " · " + shelter.name : ""}${shelter && shelter.city ? ", " + shelter.city : ""}
             ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
           </p>
-          <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
 
           <div class="hr"></div>
           <div class="row">
@@ -240,7 +237,7 @@
               if (error) return;
             }
 
-            window.location.href = `compare.html?new=${c.id}`;
+            window.location.href = `add.html?edit=${c.id}&rank=1`;
           });
         }
 

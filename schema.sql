@@ -29,7 +29,6 @@ create table cats (
   age text,
   sex text,
   color text,
-  tags text[] default '{}',
   photo_url text,
   notes text,
   added_by uuid references profiles(id),

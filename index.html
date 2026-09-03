@@ -41,7 +41,7 @@
       // Get all ranked cats
       const { data: rankedCats, error } = await sb
         .from("ratings")
-        .select("updated_at, user_id, elo_score, profiles(username), cats(id, name, photo_url, breed, age, sex, color, tags, shelter_cat_id, shelters(name))")
+        .select("updated_at, user_id, elo_score, note, profiles(username), cats(id, name, photo_url, breed, age, sex, color, notes, shelter_cat_id, shelters(name))")
         .order("updated_at", { ascending: false })
         .limit(50);
 
@@ -71,6 +71,7 @@
           when: r.updated_at,
           userId: r.user_id,
           who: r.profiles ? r.profiles.username : "someone",
+          note: r.note || r.cats?.notes,
           cat: r.cats
         }))
         .filter(e => e.cat);
@@ -89,7 +90,7 @@
 
       listEl.innerHTML = `<div class="card">` + events.slice(0, 12).map(e => {
         const c = e.cat;
-        const meta = [c.shelters ? c.shelters.name : "", c.shelter_cat_id ? `#${c.shelter_cat_id}` : ""].filter(Boolean).join(" • ");
+        const meta = [c.shelters ? `<strong>${c.shelters.name}</strong>` : "", c.shelter_cat_id ? `#${c.shelter_cat_id}` : ""].filter(Boolean).join(" • ");
         const details = [c.breed, c.age, c.sex, c.color].filter(Boolean).join(" • ");
         const placeholder = `
           <div class="thumb-shell feed-rank-thumb">
@@ -105,14 +106,14 @@
           <div class="feed-entry feed-ranked">
             <div class="dot"></div>
             <div class="feed-ranked-body">
-              <div class="text"><span class="who">${e.who}</span> ranked <a href="cat.html?id=${c.id}"><strong>${c.name}</strong></a></div>
+              <div class="text"><a class="who" href="rankings.html?user=${encodeURIComponent(e.userId)}">${e.who}</a> ranked <a href="cat.html?id=${c.id}"><strong>${c.name}</strong></a></div>
               <div class="when">${timeAgo(e.when)}</div>
               <div class="feed-rank-card">
                 ${placeholder}
                 <div class="feed-rank-copy">
                   <div class="feed-rank-meta">${meta}</div>
                   <div class="feed-rank-details">${details || "No details added yet"}</div>
-                  <div class="tags">${(c.tags || []).slice(0, 4).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+                  ${e.note ? `<div class="feed-rank-details"><em>${e.note}</em></div>` : ""}
                 </div>
               </div>
             </div>

@@ -257,10 +257,71 @@ p { margin: 0 0 0.7em 0; }
   border: 1px solid rgba(132, 111, 99, 0.1);
 }
 .cat-card .body { flex: 1; min-width: 0; }
+.ranking-card {
+  align-items: stretch;
+  padding-top: 16px;
+}
+.ranking-card .rank-stamp {
+  position: static;
+  align-self: flex-start;
+  flex: 0 0 auto;
+}
+.ranking-card .rankings-photo {
+  width: 108px;
+  height: 108px;
+  flex: 0 0 108px;
+  align-self: flex-start;
+  display: flex;
+}
+.ranking-card .rankings-photo .thumb {
+  width: 100%;
+  height: 100%;
+}
+.rankings-photo .thumb-shell,
+.rankings-photo > .thumb {
+  width: 100%;
+  height: 100%;
+}
+.rankings-photo .thumb {
+  border-radius: 18px;
+}
 .cat-card .name {
   font-family: var(--serif);
   font-size: 1.05rem;
   font-weight: 600;
+}
+.ranking-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ranking-card .cat-link {
+  display: block;
+}
+.ranking-note-row .feed-rank-details {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ranking-note-row .btn {
+  flex-shrink: 0;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+}
+.ranking-card .feed-rank-meta {
+  font-size: 0.85rem;
+}
+.ranking-card .feed-rank-details {
+  font-size: 0.9rem;
+}
+#want-to-pet-list .cat-card .name {
+  font-size: 1.15rem;
+}
+#want-to-pet-list .cat-card .meta {
+  font-size: 0.85rem;
 }
 .cat-card .meta {
   font-size: 0.78rem;
@@ -609,7 +670,16 @@ p { margin: 0 0 0.7em 0; }
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--moss); margin-top: 8px; flex-shrink: 0;
 }
-.feed-entry .text { font-size: 0.9rem; }
+.feed-entry .text {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-entry .text .who {
+  display: inline;
+  font-size: inherit;
+}
 .feed-entry .who { font-weight: 600; color: var(--moss-dark); }
 .feed-entry .when {
   font-size: 0.72rem; color: var(--ink-soft); margin-top: 2px;
@@ -649,7 +719,7 @@ p { margin: 0 0 0.7em 0; }
   min-width: 0;
 }
 .feed-rank-meta {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--ink-soft);
 }
 .feed-rank-details {
@@ -684,7 +754,33 @@ input:focus, select:focus, textarea:focus {
   border-color: rgba(122, 161, 128, 0.7);
   box-shadow: 0 0 0 4px rgba(122, 161, 128, 0.16);
 }
+.readonly-fields label {
+  color: #9a9691;
+}
+.readonly-fields input:disabled,
+.readonly-fields select:disabled {
+  color: #9a9691;
+  background: rgba(232, 230, 227, 0.7);
+  border-color: rgba(154, 150, 145, 0.28);
+  cursor: not-allowed;
+}
 textarea { resize: vertical; min-height: 92px; }
+.character-count {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  text-align: right;
+}
+.section-label.want-to-pet-label {
+  font-size: 1.05rem;
+  margin-top: 12px;
+  margin-bottom: 0;
+  text-transform: none;
+}
+#want-to-pet-list > .empty {
+  margin-top: 0 !important;
+  font-size: 0.95rem !important;
+}
 
 /* ---------- Compare screen ---------- */
 .vs-wrap {
@@ -753,10 +849,37 @@ textarea { resize: vertical; min-height: 92px; }
     gap: 10px;
     align-items: center;
   }
-
+  .ranking-card {
+    padding-top: 16px;
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: auto 76px minmax(0, 1fr);
+    height: 122px;
+    min-height: 122px;
+    overflow: hidden;
+  }
   .cat-card .thumb {
     width: 64px;
     height: 64px;
+  }
+  .ranking-card .rankings-photo {
+    width: 76px;
+    height: 76px;
+    flex-basis: 76px;
+  }
+  .ranking-card .body {
+    min-width: 0;
+  }
+  .ranking-card .name {
+    font-size: 0.95rem;
+  }
+  .ranking-card .feed-rank-meta,
+  .ranking-card .feed-rank-details {
+    font-size: 0.78rem;
+  }
+  .ranking-note-row .btn {
+    padding: 6px 8px;
+    font-size: 0.7rem;
   }
 
   .feed-rank-card {

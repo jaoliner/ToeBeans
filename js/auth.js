@@ -87,8 +87,8 @@ async function renderNav(activePage) {
     const tabs = [
       { id: "feed", href: "index.html", glyph: "☰", label: "Feed" },
       { id: "search", href: "search.html", glyph: "⚲", label: "Search" },
-      { id: "add", href: "add.html", glyph: "+", label: "Add" },
       { id: "rankings", href: "rankings.html", glyph: "№", label: "My Cats" },
+      { id: "add", href: "add.html", glyph: "+", label: "Add" },
     ];
     bottomEl.innerHTML = tabs.map(t => `
       <a href="${t.href}" class="${activePage === t.id ? 'active' : ''}">
