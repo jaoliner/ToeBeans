@@ -52,9 +52,9 @@ function timeAgo(dateStr) {
 // Renders the top bar + bottom tab bar into #app-nav-top / #app-nav-bottom
 // containers that should exist in every page's HTML.
 async function renderNav(activePage) {
-  const session = await getSession();
   const topEl = document.getElementById("app-nav-top");
   const bottomEl = document.getElementById("app-nav-bottom");
+  const session = await getSession();
 
   let whoHtml;
   if (session) {

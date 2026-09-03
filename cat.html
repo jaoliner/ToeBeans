@@ -78,6 +78,7 @@
 
         // Separate user's own note from others' notes
         let myNote = null;
+        let hasMyRating = false;
         let myElo = null;
         const volunteerNotes = [];
         let totalElo = 0;
@@ -88,7 +89,8 @@
           const noteObj = { ...r, profiles: profile ? { username: profile.username } : null };
           
           if (session && r.user_id === session.user.id) {
-            myNote = noteObj;
+            if (r.note) myNote = noteObj;
+            hasMyRating = true;
             myElo = r.elo_score;
           } else if (r.note) {
             volunteerNotes.push(noteObj);
@@ -100,6 +102,10 @@
             eloCount++;
           }
         });
+
+        if (!myNote && session && c.added_by === session.user.id && c.notes) {
+          myNote = { note: c.notes };
+        }
 
         const averageElo = eloCount > 0 ? Math.round(totalElo / eloCount) : null;
 
@@ -158,7 +164,7 @@
           <div class="insights-grid">
             <div class="insight-card">
               <div class="insight-label">Your notes</div>
-              ${myNote ? `<div class="note-item"><div class="note-text">${myNote.note}</div></div>` : `<p class="muted">No notes yet</p>`}
+              ${myNote && myNote.note ? `<div class="note-item"><div class="note-text">${myNote.note}</div></div>` : `<p class="muted">No notes yet</p>`}
             </div>
             <div class="insight-card">
               <div class="insight-label">Your rating</div>
@@ -180,18 +186,14 @@
         if (session) {
           headerActionsHtml = `
             <div class="cat-header-actions">
-              <button id="rank-cat-btn" class="btn" type="button">Rank Cat</button>
-              <button id="bookmark-btn" class="btn secondary" type="button">Want to Pet</button>
-              ${canEdit ? `<a class="btn secondary" href="add.html?edit=${c.id}">Add photos & notes</a>` : ""}
+              <a class="btn" href="add.html?edit=${c.id}">${hasMyRating ? "Edit ranking" : "Edit cat"}</a>
+              ${!hasMyRating
+                ? `<button id="rank-cat-btn" class="btn secondary" type="button">Rank Cat</button>`
+                : ""}
+              <button id="bookmark-btn" class="btn secondary" type="button" ${hasMyRating ? "disabled" : ""}>Want to Pet</button>
             </div>
           `;
         }
-
-        const editButtonHtml = canEdit
-          ? `<div class="inline-actions" style="justify-content: flex-start; margin-top: 14px;">
-              <a class="btn secondary small" href="add.html?edit=${c.id}">Edit cat</a>
-            </div>`
-          : "";
 
         contentEl.innerHTML = `
           ${photoGallery}
@@ -205,7 +207,6 @@
             ${c.shelter_cat_id ? " · <span class=\"cat-id\">#" + c.shelter_cat_id + "</span>" : ""}
           </p>
           <div class="tags">${(c.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
-          ${editButtonHtml}
 
           <div class="hr"></div>
           <div class="row">
@@ -227,17 +228,19 @@
         const rankCatButton = document.getElementById("rank-cat-btn");
         if (rankCatButton) {
           rankCatButton.addEventListener("click", async () => {
-            const { error } = await sb.from("ratings").upsert({
-              user_id: session.user.id,
-              cat_id: c.id,
-              elo_score: 1500,
-              comparisons_count: 0,
-              updated_at: new Date().toISOString()
-            }, { onConflict: "user_id,cat_id" });
+            if (!hasMyRating) {
+              const { error } = await sb.from("ratings").insert({
+                user_id: session.user.id,
+                cat_id: c.id,
+                elo_score: 1500,
+                comparisons_count: 0,
+                updated_at: new Date().toISOString()
+              });
 
-            if (!error) {
-              window.location.href = `compare.html?new=${c.id}`;
+              if (error) return;
             }
+
+            window.location.href = `compare.html?new=${c.id}`;
           });
         }
 

@@ -86,6 +86,15 @@ create table bucket_list (
   unique(user_id, cat_id)
 );
 
+-- Photos uploaded by individual volunteers, so each volunteer can see their own additions
+create table cat_photos (
+  id uuid primary key default gen_random_uuid(),
+  cat_id uuid references cats(id) on delete cascade not null,
+  user_id uuid references profiles(id) not null,
+  photo_url text not null,
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- Row Level Security
 -- Everything is readable by anyone (it's a shared feed/catalogue).
@@ -100,6 +109,7 @@ alter table ratings enable row level security;
 alter table friends enable row level security;
 alter table friend_requests enable row level security;
 alter table bucket_list enable row level security;
+alter table cat_photos enable row level security;
 
 create policy "profiles are publicly readable" on profiles for select using (true);
 create policy "users can update their own profile" on profiles for update using (auth.uid() = id);
@@ -133,6 +143,11 @@ create policy "users can delete own requests" on friend_requests for delete usin
 create policy "bucket list is private to user" on bucket_list for select using (auth.uid() = user_id);
 create policy "users can add to own bucket list" on bucket_list for insert with check (auth.uid() = user_id);
 create policy "users can remove from own bucket list" on bucket_list for delete using (auth.uid() = user_id);
+
+create policy "users can read their own cat photos" on cat_photos for select using (auth.uid() = user_id);
+create policy "users can add their own cat photos" on cat_photos for insert with check (auth.uid() = user_id);
+create policy "users can update their own cat photos" on cat_photos for update using (auth.uid() = user_id);
+create policy "users can remove their own cat photos" on cat_photos for delete using (auth.uid() = user_id);
 
 -- Storage bucket used by the Add a cat page for uploaded photos.
 -- Create a public bucket named 'cat-photos' in Supabase Storage first,

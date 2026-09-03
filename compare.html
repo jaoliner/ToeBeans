@@ -15,11 +15,6 @@
 
     <div id="compare-area"><p class="empty">Loading…</p></div>
 
-    <div id="note-box" style="display:none; margin-top: 18px;">
-      <label for="rating-note">Optional note</label>
-      <textarea id="rating-note" placeholder="What stood out about this cat? (optional)"></textarea>
-    </div>
-
     <p style="text-align:center; margin-top: 18px;">
       <a href="#" id="skip-link" style="font-size:0.85rem; color: var(--ink-soft); border-bottom:1px dotted var(--ink-soft);">Skip for now</a>
     </p>
@@ -112,15 +107,12 @@
           </div>
         </div>
       `;
-      document.getElementById("note-box").style.display = "block";
-      document.getElementById("rating-note").value = "";
       document.getElementById("pick-a").onclick = () => choose(true, opp);
       document.getElementById("pick-b").onclick = () => choose(false, opp);
     }
 
     async function choose(subjectWon, opp) {
       const userId = currentSession.user.id;
-      const noteValue = document.getElementById("rating-note").value.trim();
       const { newA, newB } = eloUpdate(subjectRating, opp.elo_score, subjectWon);
 
       await sb.from("comparisons").insert({
@@ -131,11 +123,11 @@
       });
 
       subjectRating = newA;
-      await sb.from("ratings").update({
+      const subjectUpdate = {
         elo_score: newA,
-        updated_at: new Date().toISOString(),
-        note: noteValue || null
-      }).eq("user_id", userId).eq("cat_id", subjectCat.id);
+        updated_at: new Date().toISOString()
+      };
+      await sb.from("ratings").update(subjectUpdate).eq("user_id", userId).eq("cat_id", subjectCat.id);
       await sb.from("ratings").update({ elo_score: newB, updated_at: new Date().toISOString() })
         .eq("user_id", userId).eq("cat_id", opp.cats.id);
       await sb.from("ratings").update({ comparisons_count: (opp.comparisons_count || 0) + 1 })
