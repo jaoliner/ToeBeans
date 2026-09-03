@@ -92,6 +92,7 @@ create table cat_photos (
   cat_id uuid references cats(id) on delete cascade not null,
   user_id uuid references profiles(id) not null,
   photo_url text not null,
+  original_photo_url text,
   created_at timestamptz default now()
 );
 
