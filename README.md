@@ -1,89 +1,25 @@
 # Toe Beans.AI
 
-Toe Beans.AI is a community-driven cat ranking platform that combines pairwise comparison (Elo rating system) with social features. Users rate and compare cats, bookmark their favorites, and connect with other cat enthusiasts through a friends system. Built with Supabase, it leverages Row Level Security for privacy while maintaining a public feed where volunteers contribute notes and insights about each cat. The platform provides personalized rankings for each user while building a shared, democratized database of cat data.
+Toe Beans.AI is a passion project I started in summer 2026, inspired by my love of cats and curiosity about how people's preferences can shape a ranking. Users choose between pairs of cats, and those choices build personalized rankings with the Elo rating system.
 
-## Setup Instructions
+I built it to bring together two things I enjoy: creating useful software and finding thoughtful ways to work with data. Every choice is saved as a comparison and updates that user's ratings, keeping the raw preference data distinct from the ranking it produces.
 
-### 1. Create a Supabase project (free)
+**Built with:** HTML, CSS, vanilla JavaScript, Supabase, and PostgreSQL.
 
-1. Go to supabase.com and sign up, then "New project."
-2. Pick any name and a database password (save it somewhere).
-3. Wait ~2 minutes for it to spin up.
+## Features
 
-### 2. Create the tables
+- Browse and add cat profiles, including photos and shelter details.
+- Compare cats head-to-head and build a personal ranking.
+- Save favorite cats to a bucket list and add notes.
+- Follow friends and browse community activity in the feed.
+- Keep user-specific ratings and activity protected with Supabase authentication and Row Level Security.
 
-1. In your project, open the **SQL Editor** (left sidebar).
-2. Click **New query**, paste in the entire contents of `schema.sql`
-   from this folder, and click **Run**.
-3. This creates all five tables, turns on Row Level Security, and sets
-   up a trigger that auto-creates a profile when someone signs up.
+## Ranking Mechanics
 
-### 3. Turn off email confirmation (recommended for a small volunteer group)
+Each user has a separate rating for every cat, starting at 1500 Elo. When a user picks a favorite from a pair, the app calculates the expected outcome from both current ratings, then adjusts both scores using the standard Elo update with a K-factor of 32. Choosing a higher-rated cat changes the scores differently than choosing a lower-rated cat, so the ranking responds to both the result and the prior expectation.
 
-By default Supabase requires clicking a confirmation link before you can
-sign in. For a small trusted group this is extra friction you probably
-don't need.
+When placing a newly added cat, the app compares it against up to three randomly selected cats the user has already rated. Each comparison is also stored as a separate preference record, so the app retains the choices behind the current scores. Rankings remain personal; a shared catalog can therefore produce different orderings for different users.
 
-- Go to **Authentication → Providers → Email**, and turn off
-  "Confirm email." If you'd rather keep it on, that's fine too — people
-  will just need to click the link Supabase emails them before signing in.
+## AI-Assisted Development
 
-### 4. Connect the app to your project
-
-1. In Supabase, go to **Project Settings → API**.
-2. Copy the **Project URL** and the **anon public** key.
-3. Open `js/config.js` in this folder and paste them in:
-   ```js
-   const SUPABASE_URL = "https://xxxxxxxx.supabase.co";
-   const SUPABASE_ANON_KEY = "eyJ...";
-   ```
-   The anon key is meant to be public — it's safe to commit to your repo.
-   Real security comes from the Row Level Security policies already set
-   up in `schema.sql`.
-4. In Supabase, open **Storage** and create a public bucket named
-   `cat-photos`. This is what the Add a cat page uploads to when you
-   choose a file instead of pasting a URL.
-5. In the same project, open **Storage → Policies** for the
-   `cat-photos` bucket and allow:
-   - public read access for the bucket
-   - signed-in users to upload files
-
-   If you prefer SQL, this also works in the SQL Editor:
-   ```sql
-   create policy "cat photos are publicly readable" on storage.objects
-   for select using (bucket_id = 'cat-photos');
-
-   create policy "signed in users can upload cat photos" on storage.objects
-   for insert with check (bucket_id = 'cat-photos' and auth.uid() is not null);
-   ```
-
-### 5. Upload to your GitHub repo
-
-Upload every file in this folder (keeping the `css/` and `js/`
-subfolders) into your `cat-ranker` GitHub repo, replacing the
-placeholder `index.html` from setup. Easiest way with no coding
-tools installed: on your repo's GitHub page, click **Add file → Upload
-files**, drag in the whole folder, and commit.
-
-Your site will update at the same URL as before
-(`https://yourusername.github.io/cat-ranker/`) within a minute or two.
-
-### 6. Try it
-
-1. Visit your site, click **sign in → Create an account**, give
-   yourself a volunteer name.
-2. Add a cat.
-3. You'll be walked into a quick compare round once you have 2+ cats
-   ranked — that's the Elo-based ranking loop.
-4. Check the Feed — it shows activity from everyone who signs up, not
-   just you.
-
-## Notes on what's simplified in this first version
-
-- **Ranking placement** compares a new cat against up to 3 random
-  already-rated cats rather than doing a full binary-search insertion.
-  It's simpler and works well enough at small scale; can be refined later.
-- **Photos** can be added either by pasting an image URL or uploading a
-  file to the public `cat-photos` Supabase bucket.
-- **Shelters** are created automatically the first time someone types a
-  new shelter name when adding a cat.
+I used AI as a development partner to explore approaches, implement and refine features, troubleshoot, and improve documentation. I set the direction, reviewed and integrated suggestions, and checked the behavior of the system. Learning to use AI thoughtfully as part of building a working application is one of the things this project represents for me.
