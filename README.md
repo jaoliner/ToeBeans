@@ -1,10 +1,8 @@
-# Toe Beans.AI
+# Toe Beans
 
-Toe Beans.AI is a passion project I started in summer 2026, inspired by my love of cats and curiosity about how people's preferences can shape a ranking. Users choose between pairs of cats, and those choices build personalized rankings with the Elo rating system.
+Toe Beans is a passion project I started in summer 2026, inspired by my love of cats and curiosity about how people's preferences can shape a ranking. Users add cats they've interacted with and rank pairs of cats, building personalized rankings within an Elo rating system.
 
-I built it to bring together two things I enjoy: creating useful software and finding thoughtful ways to work with data. Every choice is saved as a comparison and updates that user's ratings, keeping the raw preference data distinct from the ranking it produces.
-
-**Built with:** HTML, CSS, vanilla JavaScript, Supabase, and PostgreSQL.
+I built this platform to bring together two things I enjoy: creating useful software and finding thoughtful ways to work with data. Every choice is saved as a comparison and updates that user's ratings, keeping the raw preference data distinct from the ranking it produces.
 
 ## Features
 
